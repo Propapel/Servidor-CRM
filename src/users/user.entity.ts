@@ -13,6 +13,7 @@ import { Rol } from 'src/roles/rol.entity';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 import { LeadNote } from 'src/lead-notes/entities/lead-note.entity';
 import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
+import { Task } from 'src/task/entities/task.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -74,6 +75,9 @@ export class User {
   }
   @OneToMany(() => Customer, (customer) => customer.user)
   customers: Customer[];
+
+  @OneToMany(() => Task, (task) => task.user)
+  tasks: Task[];
 
   @Column()
   refreshToken: string;

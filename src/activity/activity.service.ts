@@ -78,6 +78,7 @@ export class ActivityService {
   update(id: number, updateActivityDto: UpdateActivityDto) {
     return `This action updates a #${id} activity`;
   }
+  
 
   remove(id: number) {
     return `This action removes a #${id} activity`;

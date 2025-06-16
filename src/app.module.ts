@@ -16,7 +16,6 @@ import { ProjectsModule } from './projects/projects.module';
 import { DocumentsPdfModule } from './documents-pdf/documents-pdf.module';
 import { BannersModule } from './banners/banners.module';
 import { AppointmentModule } from './appointment/appointment.module';
-import { TaskService } from './task/task.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailService } from './auth/service/MailService';
 import { ActivityModule } from './activity/activity.module';
@@ -29,6 +28,8 @@ import { UsersService } from './users/users.service';
 import { CalendarEventModule } from './calendar-event/calendar-event.module';
 import { ChatgptModule } from './chatgpt/chatgpt.module';
 import { TicketModule } from './ticket/ticket.module';
+import { CronService } from './cron/cron.service';
+import { TaskModule } from './task/task.module';
 
 @Module({
   imports: [
@@ -65,9 +66,10 @@ import { TicketModule } from './ticket/ticket.module';
     MessageModule,
     CalendarEventModule,
     ChatgptModule,
-    TicketModule
+    TicketModule,
+    TaskModule
   ],
   controllers: [AppController],
-  providers: [AppService, TaskService, MailService, UsersService],
+  providers: [AppService, CronService, MailService, UsersService],
 })
 export class AppModule {}

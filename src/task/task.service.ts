@@ -1,221 +1,165 @@
 import { Injectable } from '@nestjs/common';
-import { startOfWeek, endOfWeek, getMonth, getYear } from 'date-fns';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { alertReminderDto } from 'src/auth/dto/alert_reminder.dto';
-import { MailProgressExecutiveDto } from 'src/auth/dto/mailProgressExecutiveDto';
-import { MailService } from 'src/auth/service/MailService';
-import { RemiderService } from 'src/remider/remider.service';
-import { UsersService } from 'src/users/users.service';
-import { LeadStatus } from 'src/enums/lead_status';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/users/user.entity';
+import { NumericType, Repository } from 'typeorm';
+import { Task } from './entities/task.entity';
+import storage = require('../utils/cloud_storage.js');
 
 @Injectable()
 export class TaskService {
   constructor(
-    private mailService: MailService,
-    private userRepository: UsersService,
-    private remindersRepository: RemiderService,
+    @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(Task) private taskRepository: Repository<Task>,
   ) {}
 
-  private formatAMAndPM(hour: number): string {
-    return hour >= 0 && hour < 12 ? 'AM' : 'PM';
-  }
+  async create(createTaskDto: CreateTaskDto) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: createTaskDto.userId,
+      },
+    });
 
-    @Cron('30 10 * * 6', {
-    name: 'Reporte ejecutivo todos los sábados a las 2:30PM',
-    timeZone: 'America/Mexico_City',
-  })
-  // sábado a las 00:00
-  async handlerExecutivesEverySaturdayAt9AM() {
-    const now = new Date();
-    const startDate = startOfWeek(now, { weekStartsOn: 1 });
-    const endDate = endOfWeek(now, { weekStartsOn: 1 });
+    const newListFiles = [];
 
-    const { users } = await this.userRepository.findAllUsers();
-
-    for (const user of users) {
-      let totalDates = 0;
-      const leadsThisWeek = user.customers.filter((lead) => {
-        const createdAt = new Date(lead.created_at);
-        return createdAt >= startDate && createdAt <= endDate;
-      });
-      const reminderTotalThisMouth = user.customers.flatMap((customer) => customer.reminders ?? []);
-
-      for (const reminder of reminderTotalThisMouth) {
-        const timestamp: number = Number(reminder.reminder_date);
-        const dateUTC = new Date(timestamp).toISOString();
-        const reminderDate = new Date(dateUTC);
-        if (
-          reminder.is_completed &&
-          reminderDate.getUTCFullYear() === now.getUTCFullYear() &&
-          reminderDate.getUTCMonth() === now.getUTCMonth() &&
-          this.isAppointmentTypeValid(reminder.typeAppointment)
-        ) {
-          totalDates++;
+    //Upload files
+    if (createTaskDto.files && createTaskDto.files.length > 0) {
+      for (let i = 0; i < createTaskDto.files.length; i++) {
+        const attachment = createTaskDto.files[i];
+        const buffer = Buffer.from(attachment, 'base64');
+        const pathFile = `fileActivity${createTaskDto.userId}_${Date.now()}`;
+        const fileUrl = await storage(buffer, pathFile, 'application/pdf');
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
         }
       }
-      const countByStatus = {
-        total: leadsThisWeek.length,
-        desarrolloLeads: leadsThisWeek.filter((c) =>
-          c.type_of_client.includes('Expansión de producto'),
-        ).length,
-        recuperacionLeads: leadsThisWeek.filter((c) =>
-          c.type_of_client.includes('Recuperación'),
-        ).length,
-        newLeads: leadsThisWeek.filter((c) =>
-          c.type_of_client.includes('Nuevo'),
-        ).length,
-        reminderTotal: totalDates,
-      };
-
-      const mailDto: MailProgressExecutiveDto = {
-        leadTotal: countByStatus.total,
-        desarrolloLeads: countByStatus.desarrolloLeads,
-        recuperacionLeads: countByStatus.recuperacionLeads,
-        newLeads: countByStatus.newLeads,
-        reminderTotal: countByStatus.reminderTotal,
-        userName: `${user.name} ${user.lastname}`,
-        email: user.email,
-        logoUrl:
-          user.image ||
-          'https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/rtg/u0d/pw1/ChatGPT%20Image%2024%20may%202025%2C%2011_55_24.png',
-      };
-
-      await this.mailService.sendProgressExecutive(mailDto);
     }
 
-    console.log('Se enviaron reportes semanales de ejecutivos');
-  }
-
-  // Cron job para verificar las citas a las 9:30 AM
-  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
-    name: 'citas antes es mero dia',
-    timeZone: 'America/Mexico_City',
-  }) // A las 9 AM todos los días
-  async handlerEveryAt9AM() {
-    const reminders =
-      await this.remindersRepository.getAllReminderByNotification();
-
-    reminders.reminders.forEach((reminder) => {
-      const timestamp: number = Number(reminder.reminder_date);
-      const dateUTC = new Date(timestamp).toISOString();
-      const reminderDate = new Date(dateUTC);
-      const today = new Date();
-
-      // Verificar si la cita es hoy
-      if (
-        reminderDate.getUTCFullYear() === today.getUTCFullYear() &&
-        reminderDate.getUTCMonth() === today.getUTCMonth() &&
-        reminderDate.getUTCDate() === today.getUTCDate()
-      ) {
-        const alertReminder: alertReminderDto = {
-          user: reminder.customer.user.name,
-          client: reminder.customer.company_name,
-          description: reminder.description,
-          // Hora en formato UTC
-          time: `${reminderDate.getUTCHours().toString().padStart(2, '0')}:${reminderDate.getUTCMinutes().toString().padStart(2, '0')} ${this.formatAMAndPM(reminderDate.getUTCHours())}`,
-          email: reminder.customer.user.email,
-          date: reminderDate.toLocaleDateString(),
-          direcction: reminder.typeAppointment, // Corregí el typo de 'direcction' a 'direction'
-        };
-
-        // Enviar correo de alerta
-        this.mailService.sendAlertEmail(alertReminder);
-      }
+    const task = this.taskRepository.create({
+      ...createTaskDto,
+      steps: createTaskDto.steps ?? [],
+      files: newListFiles,
+      isImportant: createTaskDto.isImportant,
+      isComplete: createTaskDto.isComplete,
+      user,
     });
 
-    console.log('Aquí se enviará el correo de notificación');
+    return this.taskRepository.save(task);
   }
 
-  /*
-  // Cron job para enviar recordatorio un día antes de la cita
-  @Cron(CronExpression.EVERY_DAY_AT_9AM, {
-    name: 'citas un dia antes',
-    timeZone: 'America/Mexico_City',
-  }) // A las 9 AM todos los días
-  async handlerOneDayBefore() {
-    const reminders =
-      await this.remindersRepository.getAllReminderByNotification();
+  async markAsCompleted(taskId: number): Promise<Task> {
+    const task = await this.taskRepository.findOne({ where: { id: taskId } });
+    if (!task) throw new Error('Task not found');
 
-    reminders.reminders.forEach((reminder) => {
-      const timestamp: number = Number(reminder.reminder_date);
-      const dateUTC = new Date(timestamp).toISOString();
-      const reminderDate = new Date(dateUTC);
-      const today = new Date();
-      const oneDayBefore = new Date(reminderDate);
-      oneDayBefore.setDate(reminderDate.getDate() - 1); // Restar un día
+    task.isComplete = true;
+    return this.taskRepository.save(task);
+  }
 
-      // Verificar si la cita es mañana
-      if (
-        oneDayBefore.getUTCFullYear() === today.getUTCFullYear() &&
-        oneDayBefore.getUTCMonth() === today.getUTCMonth() &&
-        oneDayBefore.getUTCDate() === today.getUTCDate()
-      ) {
-        const alertReminder: alertReminderDto = {
-          user: reminder.customer.user.name,
-          client: reminder.customer.company_name,
-          // Hora en formato UTC
-          time: `${reminderDate.getUTCHours().toString().padStart(2, '0')}:${reminderDate.getUTCMinutes().toString().padStart(2, '0')} ${this.formatAMAndPM(reminderDate.getUTCHours())}`,
-          email: reminder.customer.user.email,
-          date: reminderDate.toLocaleDateString(),
-          direcction: reminder.typeAppointment,
-        };
+  async unmarkAsCompleted(taskId: number): Promise<Task> {
+    const task = await this.taskRepository.findOne({ where: { id: taskId } });
+    if (!task) throw new Error('Task not found');
 
-        // Enviar correo de alerta para el día siguiente
-        this.mailService.sendAlertEmailTommorrow(alertReminder);
-      }
+    task.isComplete = false;
+    return this.taskRepository.save(task);
+  }
+
+  async markAsImportant(taskId: number): Promise<Task> {
+    const task = await this.taskRepository.findOne({ where: { id: taskId } });
+    if (!task) throw new Error('Task not found');
+
+    task.isImportant = true;
+    return this.taskRepository.save(task);
+  }
+  async unmarkAsImportant(taskId: number): Promise<Task> {
+    const task = await this.taskRepository.findOne({ where: { id: taskId } });
+    if (!task) throw new Error('Task not found');
+
+    task.isImportant = false;
+    return this.taskRepository.save(task);
+  }
+
+  async findAllTaskByUser(userId: number) {
+    const tasks = await this.taskRepository.find({
+      where: {
+        user: {
+          id: userId,
+        },
+      },
     });
 
-    console.log(
-      'Aquí se enviará el correo de recordatorio para el día siguiente',
-    );
+    return tasks;
   }
-    @Cron(CronExpression.EVERY_HOUR, {
-    name: 'citas antes de una hora',
-    timeZone: 'America/Mexico_City',
-  }) // Cada hora, verificar si la cita es en una hora
-  async handlerOneHourBefore() {
-    const reminders =
-      await this.remindersRepository.getAllReminderByNotification();
 
-    reminders.reminders.forEach((reminder) => {
-      const timestamp: number = Number(reminder.reminder_date);
-      const dateUTC = new Date(timestamp).toISOString();
-      const reminderDate = new Date(dateUTC);
-      const today = new Date();
-      const oneHourBefore = new Date(reminderDate);
-      oneHourBefore.setHours(reminderDate.getHours() - 1); // Restar una hora
+  async deleteTask(taskId: number) {
+    const task = await this.taskRepository.findOne({
+      where: {
+        id: taskId,
+      },
+    });
+    task.isDeleted = true;
+    await this.taskRepository.save(task);
+  }
 
-      // Verificar si la cita es en una hora
-      if (
-        oneHourBefore.getUTCFullYear() === today.getUTCFullYear() &&
-        oneHourBefore.getUTCMonth() === today.getUTCMonth() &&
-        oneHourBefore.getUTCDate() === today.getUTCDate() &&
-        oneHourBefore.getUTCHours() === today.getUTCHours()
-      ) {
-        const alertReminder: alertReminderDto = {
-          user: reminder.customer.user.name,
-          client: reminder.customer.company_name,
-          // Hora en formato UTC
-          time: `${reminderDate.getUTCHours().toString().padStart(2, '0')}:${reminderDate.getUTCMinutes().toString().padStart(2, '0')} ${this.formatAMAndPM(reminderDate.getUTCHours())}`,
-          email: reminder.customer.user.email,
-          date: reminderDate.toLocaleDateString(),
-          direcction: reminder.typeAppointment,
-        };
+  findAll() {
+    return `This action returns all task`;
+  }
 
-        // Enviar correo de alerta una hora antes
-        this.mailService.sendAlertEmailInOneHour(alertReminder);
-      }
+  findOne(id: number) {
+    return `This action returns a #${id} task`;
+  }
+
+  async update(taskId: number, updateTaskDto: UpdateTaskDto) {
+    const task = await this.taskRepository.findOne({
+      where: { id: taskId },
     });
 
-    console.log(
-      'Aquí se enviará el correo de recordatorio para una hora antes',
-    );
-  }
-*/
-  // Cron job para enviar recordatorio una hora antes de la cita
+    if (!task) {
+     // throw new NotFoundException('Tarea no encontrada');
+    }
 
-  private isAppointmentTypeValid(type: string): boolean {
-    const validTypes = ['Presencial', 'Reunion Remota']; // ejemplo
-    return validTypes.includes(type);
+    let updatedFiles = task.files ?? [];
+
+    if (updateTaskDto.files && updateTaskDto.files.length > 0) {
+      updatedFiles = [];
+
+      for (const file of updateTaskDto.files) {
+        if (file.startsWith('http')) {
+          // Mantener archivo existente
+          updatedFiles.push(file);
+        } else {
+          // Subir archivo nuevo en base64
+          try {
+            const buffer = Buffer.from(file, 'base64');
+            const pathFile = `fileActivity${updateTaskDto.userId}_${Date.now()}`;
+            const fileUrl = await storage(buffer, pathFile, 'application/pdf');
+
+            if (fileUrl) {
+              updatedFiles.push(fileUrl);
+            }
+          } catch (error) {
+            console.error('Error al procesar archivo base64:', error);
+          }
+        }
+      }
+    }
+
+    // Actualizar campos normales
+    task.title = updateTaskDto.title ?? task.title;
+    task.note = updateTaskDto.note ?? task.note;
+    task.reminderDate = updateTaskDto.reminderDate ?? task.reminderDate;
+    task.isImportant = updateTaskDto.isImportant ?? task.isImportant;
+    task.isComplete = updateTaskDto.isComplete ?? task.isComplete;
+    task.steps = updateTaskDto.steps ?? task.steps;
+    task.files = updatedFiles;
+    task.finishTask = updateTaskDto.finishTask ?? task.finishTask;
+
+    // Reasignar usuario si cambia el userId
+
+    return this.taskRepository.save(task);
+  }
+
+  remove(id: number) {
+    return `This action removes a #${id} task`;
   }
 }

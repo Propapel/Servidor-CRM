@@ -19,6 +19,11 @@ import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
 export class CustomersController {
   constructor(private customerService: CustomersService) {}
 
+  @Get('probarCorreo')
+  probar(){
+     this.customerService.probar()
+  }
+  
   //@UseGuards(AccessTokenGuard)
   @Get('findAllCustomersByUserId/:id')
   findAllCustomerByUserId(@Param('id', ParseIntPipe) id: number) {

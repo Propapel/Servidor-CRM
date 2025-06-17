@@ -15,30 +15,45 @@ export class MailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // true for port 465, false for other ports
+      host: process.env.MAIL_HOST,
+      port: Number(process.env.MAIL_PORT),
+      secure: process.env.MAIL_SECURE === 'true',
       auth: {
-        user: 'usuario7propapel@gmail.com',
-        pass: 'wmnl acjn tgaw iyhc',
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
       },
     });
   }
 
-  async notifityNewAssigmentLead(notifityAlertAssignedCustomer: NotifityAlertAssignedCustomer){
+  async sendTestEmail() {
+    const info = await this.transporter.sendMail({
+      from: `"Test App" <${process.env.MAIL_USER}>`,
+      to: 'soportesai2@propapel.com.mx',
+      subject: 'Correo de prueba',
+      text: '¡Hola! Este es un correo de prueba enviado desde Nodemailer.',
+    });
+
+    console.log('Correo enviado: %s', info.messageId);
+  }
+
+  async notifityNewAssigmentLead(
+    notifityAlertAssignedCustomer: NotifityAlertAssignedCustomer,
+  ) {
     const mailOptions = {
       from: 'crm-propapel@propapel.com.mx',
       to: notifityAlertAssignedCustomer.emailUserAssignment,
       subject: 'Asignación de cliente🧍‍♂️',
       html: HTML_ASSING_USER_ALERT(
         notifityAlertAssignedCustomer.customer,
-        notifityAlertAssignedCustomer.user
+        notifityAlertAssignedCustomer.user,
       ),
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log(`Correo de alerta enviado a ${notifityAlertAssignedCustomer.emailUserAssignment}}`);
+      console.log(
+        `Correo de alerta enviado a ${notifityAlertAssignedCustomer.emailUserAssignment}}`,
+      );
     } catch (error) {
       console.error('Error al enviar el correo de alerta:', error);
     }
@@ -56,21 +71,19 @@ export class MailService {
     await this.transporter.sendMail(mailOptions);
   }
 
-  async sendProgressExecutive(
-    progressExecutive: MailProgressExecutiveDto
-  ){
+  async sendProgressExecutive(progressExecutive: MailProgressExecutiveDto) {
     const mailOptions = {
       from: 'crm-propapel@propapel.com.mx',
       to: progressExecutive.email,
       subject: 'Progreso',
       html: HTML_TEMPLATE_PROGRESS(
-         progressExecutive.leadTotal,
-         progressExecutive.desarrolloLeads,
-         progressExecutive.recuperacionLeads,
-         progressExecutive.userName,
-         progressExecutive.newLeads,
-         progressExecutive.reminderTotal,
-         progressExecutive.logoUrl
+        progressExecutive.leadTotal,
+        progressExecutive.desarrolloLeads,
+        progressExecutive.recuperacionLeads,
+        progressExecutive.userName,
+        progressExecutive.newLeads,
+        progressExecutive.reminderTotal,
+        progressExecutive.logoUrl,
       ),
     };
 
@@ -93,7 +106,7 @@ export class MailService {
         alertReminder.time,
         alertReminder.direcction,
         alertReminder.user,
-        alertReminder.description
+        alertReminder.description,
       ),
     };
 

@@ -42,6 +42,10 @@ export class CustomersService {
     private calendarEventRepository: Repository<CalendarEvent>,
   ) {}
 
+  async probar(){
+     await this.mailService.sendTestEmail()
+  }
+
   async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {
     const {
       opportunities,

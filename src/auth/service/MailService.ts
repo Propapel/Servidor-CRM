@@ -40,7 +40,7 @@ export class MailService {
     notifityAlertAssignedCustomer: NotifityAlertAssignedCustomer,
   ) {
     const mailOptions = {
-      from: 'crm-propapel@propapel.com.mx',
+      from:  `"CRM Propapel" <${process.env.MAIL_USER}>`,
       to: notifityAlertAssignedCustomer.emailUserAssignment,
       subject: 'Asignación de cliente🧍‍♂️',
       html: HTML_ASSING_USER_ALERT(
@@ -73,7 +73,7 @@ export class MailService {
 
   async sendProgressExecutive(progressExecutive: MailProgressExecutiveDto) {
     const mailOptions = {
-      from: 'crm-propapel@propapel.com.mx',
+      from: `"CRM Propapel" <${process.env.MAIL_USER}>`,
       to: progressExecutive.email,
       subject: 'Progreso',
       html: HTML_TEMPLATE_PROGRESS(
@@ -97,7 +97,7 @@ export class MailService {
 
   async sendAlertEmail(alertReminder: alertReminderDto) {
     const mailOptions = {
-      from: 'crm-propapel@propapel.com.mx',
+      from: `"CRM Propapel" <${process.env.MAIL_USER}>`,
       to: alertReminder.email,
       subject: 'Recordatorio de cita 🧍‍♂️🔔',
       html: HTML_TEMPLATE(

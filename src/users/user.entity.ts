@@ -85,6 +85,9 @@ export class User {
   @OneToMany(() => CalendarEvent, (activity) => activity.createdBy)
   events: CalendarEvent[];
 
+  @Column({default: ''})
+  wallet: string;
+
   @ManyToMany(() => CalendarEvent, (event) => event.participants)
   participatingEvents: CalendarEvent[];
 }

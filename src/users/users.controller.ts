@@ -26,15 +26,22 @@ import { UpdateInfoUserDto } from './dto/update-info-user';
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  // GET -> OBTENER
-  // POST -> CREAR
-  // PUT ' PATCH -> ACTUALIZAR
-  // DELETE ' => BORRAR
+  /*
+  @Get('users/appointments')
+@Get('branches/:id/users/appointments')
 
-  //@UseGuards(JwtAuthGuard)
+*/
 
-  //NEW VERSION GET INFO
-  
+  @Get('appointments')
+  findAppointmentsByUsers(){
+     return this.usersService.findInfoUserAppointments()
+  }
+
+  @Get('appointments/branch/:id')
+  findAppointmentsUsersByBranchId(@Param('id', ParseIntPipe) id: number) {
+     return this.usersService.findInfoUserAppointmentsByBranch(id)
+  }
+
   @Get('findAllUsersBranches')
   findAllUsersBranches() {
     return this.usersService.findAllUsersBranches();

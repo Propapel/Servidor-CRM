@@ -82,9 +82,11 @@ export class TaskService {
   async findAllTaskByUser(userId: number) {
     const tasks = await this.taskRepository.find({
       where: {
+        isDeleted: false,
         user: {
           id: userId,
         },
+    
       },
     });
 

@@ -6,26 +6,32 @@ import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('calendar-event')
 export class CalendarEventController {
-  constructor(private readonly calendarEventService: CalendarEventService) {}
+  constructor(private readonly calendarEventService: CalendarEventService) { }
+
+  @UseGuards(AccessTokenGuard)
   @Post('create')
   create(@Body() createCalendarEventDto: CreateCalendarEventDto) {
     return this.calendarEventService.create(createCalendarEventDto);
   }
+  @UseGuards(AccessTokenGuard)
   @Get('findAll')
   findAll() {
     return this.calendarEventService.findAll();
   }
 
+  @UseGuards(AccessTokenGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.calendarEventService.findOne(+id);
   }
 
+  @UseGuards(AccessTokenGuard)
   @Put('update/:id')
   update(@Param('id') id: number, @Body() updateCalendarEventDto: UpdateCalendarEventDto) {
     return this.calendarEventService.update(+id, updateCalendarEventDto);
   }
 
+  @UseGuards(AccessTokenGuard)
   @Delete('delete/:id')
   remove(@Param('id') id: number) {
     return this.calendarEventService.remove(+id);

@@ -1,4 +1,4 @@
-export enum KindOfReport {
+export enum TypeOfReport {
   FAILURE = 'FAILURE',                         // Falla general del equipo
   REPLACEMENT = 'REPLACEMENT',                 // Reemplazo de componente o dispositivo
   RELOCATION = 'RELOCATION',                   // Reubicación de equipo a otra ubicación
@@ -8,6 +8,8 @@ export enum KindOfReport {
   COLLECTION = 'COLLECTION',                   // Recolección de equipo dañado o en desuso
   REMOTE_CONFIGURATION = 'REMOTE_CONFIGURATION', // Configuración remota
   TONER_DELIVERY = 'TONER_DELIVERY',           // Entrega de tóner o consumibles
-  APOYO = 'APOYO' //AQUI SERIA APOYO A OTRA SUCURSAL DE LA MISMA EMPRESA PERO DE OTRA UBICACION
-  
+  APOYO_VILLA = 'APOYO_VILLA', //AQUI SERIA APOYO A OTRA SUCURSAL DE LA MISMA EMPRESA PERO DE OTRA UBICACION
+  APOYO_CDMX = 'APOYO_CDMX',
+  APOYO_CANCUN = 'APOYO_CANCUN',
+  APOYO_MTY = "APOYO_MTY",
 }

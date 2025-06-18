@@ -31,31 +31,35 @@ export class UsersController {
 @Get('branches/:id/users/appointments')
 
 */
-
+  @UseGuards(AccessTokenGuard)
   @Get('appointments')
   findAppointmentsByUsers(){
      return this.usersService.findInfoUserAppointments()
   }
 
+  @UseGuards(AccessTokenGuard)
   @Get('appointments/branch/:id')
   findAppointmentsUsersByBranchId(@Param('id', ParseIntPipe) id: number) {
      return this.usersService.findInfoUserAppointmentsByBranch(id)
   }
 
+  @UseGuards(AccessTokenGuard)
   @Get('findAllUsersBranches')
   findAllUsersBranches() {
     return this.usersService.findAllUsersBranches();
   }
 
+    @UseGuards(AccessTokenGuard)
    @Get('findUsersByBranch/:sucursalId')
   findUsersByBranch(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUsesByBranch(id);
   }
-
+  @UseGuards(AccessTokenGuard)
   @Get('findAllUserByBranch/:sucursalId')
   findAllUserBySucursal(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUserByBranch(id);
   }
+    @UseGuards(AccessTokenGuard)
   @Get('findAllManagerSaleAndRegionalManager/:sucursalId')
   findAllManagerSaleAndRegionalManager(
     @Param('sucursalId', ParseIntPipe) id: number,
@@ -63,11 +67,13 @@ export class UsersController {
     return this.usersService.findAllManagerSaleAndRegionalManager(id);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('tableDates')
   findAllDatesUsersByMouth() {
     return this.usersService.findAllDatesNowByAllUsers();
   }
 
+  
   @Get('findAppointments')
   async getDatesForMouthAndYear(
     @Query('month') month?: string,
@@ -277,51 +283,61 @@ export class UsersController {
   `;
   }
 
+    @UseGuards(AccessTokenGuard)
   @Put('updateInfo')
   updateInfoUser(@Body() UpdateInfoUserDto: UpdateInfoUserDto) {
     return this.usersService.updateInfoUser(UpdateInfoUserDto);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('findByAllUsers')
   findByAllUsers() {
     return this.usersService.findBYAllUsers();
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('findByUserAllUsersBranches')
   findByAllUsersByBranch() {
     return this.usersService.findByAllUsersByBranches();
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('getAllUsers')
   findAllUsers() {
     return this.usersService.findAllUsers();
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('getUserAllSucursales')
   findUserByAllSucursales() {
     return this.usersService.findUserBySucursale();
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('getUserBySucursal/:sucursalId')
   findUserBySucursal(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUserBySucursale(id);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Get('getUserById/:Id')
   getUserById(@Param('Id', ParseIntPipe) id: number) {
     return this.usersService.getUserById(id);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Post() // http://localhost/users -> POST
   create(@Body() user: CreateUserDto) {
     return this.usersService.create(user);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Put(':id') // http://192.168.1.15:3000/users/:id -> PUT
   update(@Param('id', ParseIntPipe) id: number, @Body() user: UpdateUserDto) {
     return this.usersService.update(id, user);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Patch(':id/password')
   async updatePassword(
     @Param('id') id: number,
@@ -330,18 +346,21 @@ export class UsersController {
     return this.usersService.updatePassword(id, newPassword);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Delete('delete/:id')
   deleteUser(@Param('id', ParseIntPipe) id: number) {
     console.log('ID recibido:', id);
     return this.usersService.deleteUser(id);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Put('active/:id')
   activeUser(@Param('id', ParseIntPipe) id: number) {
     console.log('ID recibido:', id);
     return this.usersService.activeUser(id);
   }
 
+    @UseGuards(AccessTokenGuard)
   @Put('updateWithImage/:id')
   updateWithImage(
     @Param('id', ParseIntPipe) id: number,

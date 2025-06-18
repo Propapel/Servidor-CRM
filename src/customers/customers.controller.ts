@@ -19,31 +19,31 @@ import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
 export class CustomersController {
   constructor(private customerService: CustomersService) {}
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findAllCustomersByUserId/:id')
   findAllCustomerByUserId(@Param('id', ParseIntPipe) id: number) {
     return this.customerService.findAllCustomerByUserId(id);
   }
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findAllCustomerByType/:id')
   findAllCustomerByType(@Param('id', ParseIntPipe) id: number) {
     return this.customerService.findAllCustomersByTypes(id);
   }
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findById/:id')
   findById(@Param('id', ParseIntPipe) id: number) {
     return this.customerService.findById(id);
   }
 
-  //@UseGuards(AccessTokenGuard)
+   @UseGuards(AccessTokenGuard)
   @Post('createLead')
   createLead(@Body() customer: CreateCustomerDto) {
     this.customerService.createNewVersion(customer);
   }
 
-  //@UseGuards(AccessTokenGuard)
+    @UseGuards(AccessTokenGuard)
   @Put('updateStatusManager')
   updateStatusManager(
     @Body() updateStatusCustomerDto: UpdateStatusCustomerDto,
@@ -52,44 +52,45 @@ export class CustomersController {
   }
 
   ///ALL
-  //@UseGuards(AccessTokenGuard)
+@UseGuards(AccessTokenGuard)
   @Post('create')
   create(@Body() customer: CreateCustomerDto) {
     this.customerService.create(customer);
   }
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getCustomerById/:customerId')
   getUserById(@Param('customerId') customerId: number) {
     return this.customerService.getCustomerById(customerId);
   }
 
   //This funtion remove dont work with new version
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('myCustomers/:id')
   findMyCustomers(@Param('id', ParseIntPipe) id: number) {
     return this.customerService.getMyCustomer(id);
   }
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getCategorizedCustomers')
   getCategorizedCustomer() {
     return this.customerService.categorizeLeads();
   }
 
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getFunnerChartByBranch/:branch')
   findFunnerChartByBranch(@Param('branch') branch: string) {
     return this.customerService.getFunnerCharByBrach(branch);
   }
 
   //This function don´t work with the new version
-  //@UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getAllCustomers')
   getAllCustomers() {
     return this.customerService.getAllCustomer();
   }
 
+  @UseGuards(AccessTokenGuard)
   @Post('updateCustomer/:customerId')
   updateCustomer(
     @Param('customerId') id: number,

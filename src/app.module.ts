@@ -30,6 +30,8 @@ import { ChatgptModule } from './chatgpt/chatgpt.module';
 import { TicketModule } from './ticket/ticket.module';
 import { CronService } from './cron/cron.service';
 import { TaskModule } from './task/task.module';
+import { TicketUpdatedModule } from './ticket-updated/ticket-updated.module';
+import { TicketCommentModule } from './ticket-comment/ticket-comment.module';
 
 @Module({
   imports: [
@@ -67,7 +69,9 @@ import { TaskModule } from './task/task.module';
     CalendarEventModule,
     ChatgptModule,
     TicketModule,
-    TaskModule
+    TaskModule,
+    TicketUpdatedModule,
+    TicketCommentModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

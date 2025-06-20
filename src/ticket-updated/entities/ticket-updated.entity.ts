@@ -11,11 +11,11 @@ export class TicketUpdate {
   ticket: Ticket;
 
   @Column({
-  type: 'enum',
-  enum: TicketAction,
-})
-action: TicketAction;
-// Ej. "Ticket Created", "Assigned to Mark"
+    type: 'enum',
+    enum: TicketAction,
+  })
+  action: TicketAction;
+  // Ej. "Ticket Created", "Assigned to Mark"
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   timestamp: Date;

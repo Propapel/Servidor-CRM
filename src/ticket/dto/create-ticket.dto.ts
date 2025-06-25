@@ -8,6 +8,12 @@ export class CreateTicketDto {
 
 
     userCreated: number;
+
+    @IsString()
+    phoneReport: string;
+    
+    @IsString()
+    emailReport: string;
     
     @IsNotEmpty()
     @IsString()

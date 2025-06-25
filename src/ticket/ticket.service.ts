@@ -35,6 +35,8 @@ export class TicketService {
     reasonReport: createTicketDto.reasonReport,
     location: createTicketDto.location,
     files: createTicketDto.files,
+    phoneReport: createTicketDto.phoneReport,
+    emailReport: createTicketDto.emailReport,
     status: createTicketDto.status,
     typeOfReport: createTicketDto.typeOfReport,
   });
@@ -80,7 +82,11 @@ export class TicketService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} ticket`;
+    const ticket = this.ticketRepository.findOne({
+      where: { id },
+      relations: ['createdBy', 'assigmentsTechnical', 'updates', 'comments'],
+    });
+    return ticket;
   }
 
   update(id: number, updateTicketDto: UpdateTicketDto) {

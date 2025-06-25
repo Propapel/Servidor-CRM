@@ -31,6 +31,12 @@ export class Ticket {
   apartamentReport: string;
 
   @Column()
+  phoneReport: string;
+
+  @Column()
+  emailReport: string;
+
+  @Column()
   reasonReport: string;
 
   @Column({ nullable: true })

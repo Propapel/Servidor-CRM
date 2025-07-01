@@ -3,6 +3,7 @@ import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AsignTechnicalDto } from './dto/asign-technical.dto';
 
 @Controller('ticket')
 export class TicketController {
@@ -17,6 +18,11 @@ export class TicketController {
   @Get()
   findAll() {
     return this.ticketService.findAll();
+  }
+
+  @Post('asignTechnical/:id')
+  asignTechnical(@Param('id', ParseIntPipe) id: number, @Body() asignTechnicalDto: AsignTechnicalDto) {
+    return this.ticketService.asigngTicketToTechnical(+id, asignTechnicalDto);
   }
 
   @Get('byBranch/:id')

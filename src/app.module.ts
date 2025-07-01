@@ -32,6 +32,9 @@ import { CronService } from './cron/cron.service';
 import { TaskModule } from './task/task.module';
 import { TicketUpdatedModule } from './ticket-updated/ticket-updated.module';
 import { TicketCommentModule } from './ticket-comment/ticket-comment.module';
+import { ClientsModule } from './clients/clients.module';
+import { DepartmentsModule } from './departments/departments.module';
+import { ItequipmentsModule } from './itequipments/itequipments.module';
 
 @Module({
   imports: [
@@ -71,7 +74,10 @@ import { TicketCommentModule } from './ticket-comment/ticket-comment.module';
     TicketModule,
     TaskModule,
     TicketUpdatedModule,
-    TicketCommentModule
+    TicketCommentModule,
+    ClientsModule,
+    DepartmentsModule,
+    ItequipmentsModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

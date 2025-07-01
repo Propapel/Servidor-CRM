@@ -14,6 +14,7 @@ import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 import { LeadNote } from 'src/lead-notes/entities/lead-note.entity';
 import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
 import { Task } from 'src/task/entities/task.entity';
+import { Client } from 'src/clients/entities/client.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -40,6 +41,9 @@ export class User {
 
   @Column({ nullable: true })
   image: string;
+
+  @OneToMany(() => Client, (client) => client.user)
+  clients: Client[];
 
   @JoinTable({
     name: 'user_has_roles',

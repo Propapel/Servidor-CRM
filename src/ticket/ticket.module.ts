@@ -5,10 +5,12 @@ import { User } from 'src/users/user.entity';
 import { Ticket } from './entities/ticket.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity';
+import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
+import { Client } from 'src/clients/entities/client.entity';
 
 @Module({
    imports : [
-      TypeOrmModule.forFeature([User, Ticket, TicketUpdate]),
+      TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client]),
     ],
   controllers: [TicketController],
   providers: [TicketService],

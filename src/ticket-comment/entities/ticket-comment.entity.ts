@@ -18,5 +18,8 @@ export class TicketComment {
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
+  @Column()
+  imageUrl: string;
 }
 

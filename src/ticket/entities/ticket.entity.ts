@@ -15,9 +15,18 @@ import { TicketPriority } from '../enum/ticket_priority';
 import { TypeOfReport } from '../enum/kind_report';
 import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity';
 import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
+import { Client } from 'src/clients/entities/client.entity';
+import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 
 @Entity('ticket')
 export class Ticket {
+
+   @ManyToOne(() => Itequipment, (equipo) => equipo.tickets)
+  equipo: Itequipment;
+
+  @ManyToOne(() => Client, (cliente) => cliente.tickets)
+  cliente: Client;
+
   @PrimaryGeneratedColumn()
   id: number;
 

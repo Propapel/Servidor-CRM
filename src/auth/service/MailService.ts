@@ -8,6 +8,7 @@ import { NotifityAlertAssignedCustomer } from './notifityAlertAssignedCustomer.d
 import HTML_ASSING_USER_ALERT from './mail_body_assigned_user';
 import HTML_TEMPLATE_PROGRESS from './mail_progress_executive';
 import { MailProgressExecutiveDto } from '../dto/mailProgressExecutiveDto';
+import HTML_CREATED_REPORT from './mail_body_created_report';
 
 @Injectable()
 export class MailService {
@@ -70,6 +71,36 @@ export class MailService {
 
     await this.transporter.sendMail(mailOptions);
   }
+
+  async sendEmailCreatedReport(
+    userCreatedReport: string,
+    id: number,
+    email: string,
+    fecha: string,
+    ubicacion: string,
+    falla: string
+  ) {
+    const mailOptions = {
+      from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: `Ticket #${id}: ${falla}`,
+      html: HTML_CREATED_REPORT(
+        userCreatedReport,
+        id,
+        fecha,
+        ubicacion,
+        falla,
+      ),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Correo de alerta enviado a ${email}`);
+    } catch (error) {
+      console.error('Error al enviar el correo de alerta:', error);
+    }
+  }
+
 
   async sendProgressExecutive(progressExecutive: MailProgressExecutiveDto) {
     const mailOptions = {

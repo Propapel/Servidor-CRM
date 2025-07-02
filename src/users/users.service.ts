@@ -56,55 +56,58 @@ async findInfoUserAppointments(): Promise<InfoTableDatesDto[]> {
 
   */
 
- async findInfoUserAppointments() {
-  return await this.usersRepository
-    .createQueryBuilder('user')
-    .leftJoin('user.customers', 'customer')
-    .leftJoin('user.sucursales', 'sucursal')
-    .leftJoin('customer.reminders', 'reminder')
-    .select([
-      'user.id AS id',
-      "CONCAT(user.name, ' ', user.lastname) AS saleExecutive",
-      'sucursal.nombre AS branch',
-      'user.wallet AS wallet',
-      'customer.company_name AS companyName',
-      'customer.progressLead AS progressLead',
-      'reminder.typeAppointment AS typeDate',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS hora',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS dateAppointment',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000) AS localDateTime',
-    ])
-    .where('reminder.reminder_date IS NOT NULL')
-    .andWhere(`user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`)
-    .andWhere('reminder.typeAppointment IS NOT NULL')
-    .getRawMany();
-}
+  async findInfoUserAppointments() {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.customers', 'customer')
+      .leftJoin('user.sucursales', 'sucursal')
+      .leftJoin('customer.reminders', 'reminder')
+      .select([
+        'user.id AS id',
+        "CONCAT(user.name, ' ', user.lastname) AS saleExecutive",
+        'sucursal.nombre AS branch',
+        'user.wallet AS wallet',
+        'customer.company_name AS companyName',
+        'customer.progressLead AS progressLead',
+        'reminder.typeAppointment AS typeDate',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS hora',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS dateAppointment',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000) AS localDateTime',
+      ])
+      .where('reminder.reminder_date IS NOT NULL')
+      .andWhere(
+        `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`,
+      )
+      .andWhere('reminder.typeAppointment IS NOT NULL')
+      .getRawMany();
+  }
 
-async findInfoUserAppointmentsByBranch(id: number) {
-  return await this.usersRepository
-    .createQueryBuilder('user')
-    .leftJoin('user.customers', 'customer')
-    .leftJoin('user.sucursales', 'sucursal')
-    .leftJoin('customer.reminders', 'reminder')
-    .select([
-      'user.id AS id',
-      "CONCAT(user.name, ' ', user.lastname) AS saleExecutive",
-      'sucursal.nombre AS branch',
-      'user.wallet AS wallet',
-      'customer.company_name AS companyName',
-      'customer.progressLead AS progressLead',
-      'reminder.typeAppointment AS typeDate',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS hora',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS dateAppointment',
-      'FROM_UNIXTIME(reminder.reminder_date / 1000) AS localDateTime',
-    ])
-    .where('reminder.reminder_date IS NOT NULL')
-    .andWhere('sucursal.id = :id', { id }) 
-    .andWhere(`user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`)
-    .andWhere('reminder.typeAppointment IS NOT NULL')
-    .getRawMany();
-}
-
+  async findInfoUserAppointmentsByBranch(id: number) {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.customers', 'customer')
+      .leftJoin('user.sucursales', 'sucursal')
+      .leftJoin('customer.reminders', 'reminder')
+      .select([
+        'user.id AS id',
+        "CONCAT(user.name, ' ', user.lastname) AS saleExecutive",
+        'sucursal.nombre AS branch',
+        'user.wallet AS wallet',
+        'customer.company_name AS companyName',
+        'customer.progressLead AS progressLead',
+        'reminder.typeAppointment AS typeDate',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS hora',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS dateAppointment',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000) AS localDateTime',
+      ])
+      .where('reminder.reminder_date IS NOT NULL')
+      .andWhere('sucursal.id = :id', { id })
+      .andWhere(
+        `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`,
+      )
+      .andWhere('reminder.typeAppointment IS NOT NULL')
+      .getRawMany();
+  }
 
   //This function find all users of branches
   async findAllUsersBranches() {
@@ -578,7 +581,47 @@ async findInfoUserAppointmentsByBranch(id: number) {
   }
 
   /**
+   * Find all technical users by branch
+   * This function retrieves all technical users associated with a specific branch.
+   * It filters users based on their role and email domain, ensuring that only those with the '5' role (technical) and specific email domains are returned.
    *
+   *
+   * @param sucursalId
+   * @returns
+   * @memberof UsersService
+   */
+  async findAllTechnicalByBranch(sucursalId: number) {
+    const users = await this.usersRepository.find({
+      where: [
+        {
+          sucursales: { id: sucursalId },
+          roles: { id: Like('5') },
+          email: Like('%@propapel.com.mx'),
+        },
+        {
+          sucursales: { id: sucursalId },
+          roles: { id: Like('5') },
+          email: Like('%@optivosa.com'),
+        },
+      ],
+    });
+    if (!users || users.length === 0) {
+      throw new HttpException(
+        `No se encontraron técnicos para la sucursal con ID ${sucursalId}`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return users;
+  }
+
+  /**
+   * Find all users by branch
+   * This function retrieves all users associated with a specific branch.
+   * It filters users based on their role and email domain, ensuring that only those with the '1' role (sales executive) and specific email domains are returned.
+   *
+   * @param sucursalId - The ID of the branch to filter users by.
+   * @return An object containing an array of users that match the criteria.
+   * @memberof UsersService
    */
   async findAllUserByBranch(sucursalId: number) {
     const users = await this.usersRepository.find({
@@ -633,7 +676,7 @@ async findInfoUserAppointmentsByBranch(id: number) {
 
     for (const user of users) {
       const saleExecutive = `${user.name} ${user.lastname}`;
-      const clave = this.detectWalletByUser(user.id) || 'Sin clave';
+      const clave = user.wallet || 'Sin clave';
       let totalDates = 0;
 
       for (const customer of user.customers || []) {
@@ -670,25 +713,6 @@ async findInfoUserAppointmentsByBranch(id: number) {
     return validTypes.includes(type);
   }
 
-  private detectWalletByUser(id: number): string {
-    const walletMap: Record<number, string> = {
-      43: 'P065',
-      36: '359',
-      46: 'P419',
-      51: 'P470',
-      47: 'P471',
-      45: 'P501',
-      27: '520',
-      44: 'P595',
-      28: 'P596',
-      29: 'P21',
-      38: 'P52',
-      26: 'P53',
-    };
-
-    return walletMap[id] ?? '';
-  }
-
   async findAllDatesByMonthYear(
     month: number,
     year: number,
@@ -705,7 +729,7 @@ async findInfoUserAppointmentsByBranch(id: number) {
 
     for (const user of users) {
       const saleExecutive = `${user.name} ${user.lastname}`;
-      const clave = this.detectWalletByUser(user.id) || 'Sin clave';
+      const clave = user.wallet || 'Sin clave';
       let totalDates = 0;
 
       for (const customer of user.customers || []) {

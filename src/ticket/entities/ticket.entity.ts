@@ -20,8 +20,10 @@ import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 
 @Entity('ticket')
 export class Ticket {
-
-   @ManyToOne(() => Itequipment, (equipo) => equipo.tickets)
+  @ManyToOne(() => Itequipment, (equipo) => equipo.tickets, {
+    nullable: true,
+    onDelete: 'SET NULL', // opcional pero recomendable
+  })
   equipo: Itequipment;
 
   @ManyToOne(() => Client, (cliente) => cliente.tickets)
@@ -96,12 +98,14 @@ export class Ticket {
   @OneToMany(() => TicketUpdate, (update) => update.ticket, { cascade: true })
   updates: TicketUpdate[];
 
-  @OneToMany(() => TicketComment, (comment) => comment.ticket, { cascade: true })
+  @OneToMany(() => TicketComment, (comment) => comment.ticket, {
+    cascade: true,
+  })
   comments: TicketComment[];
 
-  @CreateDateColumn({ type: 'datetime' })
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime' })
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 }

@@ -22,35 +22,67 @@ import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateInfoUserDto } from './dto/update-info-user';
 
+
 @Controller('users')
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  /*
-  @Get('users/appointments')
-@Get('branches/:id/users/appointments')
-
-*/
+  /**
+   *  Retrieves all users with rol technical.
+   * This endpoint is protected by the AccessTokenGuard,
+   * 
+   * @param branchId The ID of the branch to filter users.
+   * @returns Returns all users with rol technical.
+   * 
+   */
   @UseGuards(AccessTokenGuard)
-  @Get('appointments')
-  findAppointmentsByUsers(){
-     return this.usersService.findInfoUserAppointments()
+  @Get('technical/branch/:branchId')
+  findTechnicalByBranch(@Param('branchId', ParseIntPipe) branchId: number) {
+    return this.usersService.findAllTechnicalByBranch(branchId);
   }
 
+  /**
+   * Retrieves all users with their branches and roles.
+   * This endpoint is protected by the AccessTokenGuard,
+   * ensuring that only authenticated users can access it.
+   * 
+   * @returns  Returns all users with their branches and roles.
+   */
+  @UseGuards(AccessTokenGuard)
+  @Get('appointments')
+  findAppointmentsByUsers() {
+    return this.usersService.findInfoUserAppointments();
+  }
+
+  /**
+   * Retrieves appointments for users by branch ID.
+   * This endpoint is protected by the AccessTokenGuard,
+   * ensuring that only authenticated users can access it.
+   * 
+   * @param id  The ID of the branch to filter appointments.
+   * @returns Returns appointments for users associated with the specified branch ID.
+   */
   @UseGuards(AccessTokenGuard)
   @Get('appointments/branch/:id')
   findAppointmentsUsersByBranchId(@Param('id', ParseIntPipe) id: number) {
-     return this.usersService.findInfoUserAppointmentsByBranch(id)
+    return this.usersService.findInfoUserAppointmentsByBranch(id);
   }
 
+  /**
+   * Retrieves all users with their branches.
+   * This endpoint is protected by the AccessTokenGuard,
+   * ensuring that only authenticated users can access it.
+   * 
+   * @returns Returns all users with their branches.
+   */
   @UseGuards(AccessTokenGuard)
   @Get('findAllUsersBranches')
   findAllUsersBranches() {
     return this.usersService.findAllUsersBranches();
   }
 
-    @UseGuards(AccessTokenGuard)
-   @Get('findUsersByBranch/:sucursalId')
+  @UseGuards(AccessTokenGuard)
+  @Get('findUsersByBranch/:sucursalId')
   findUsersByBranch(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUsesByBranch(id);
   }
@@ -59,7 +91,7 @@ export class UsersController {
   findAllUserBySucursal(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUserByBranch(id);
   }
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findAllManagerSaleAndRegionalManager/:sucursalId')
   findAllManagerSaleAndRegionalManager(
     @Param('sucursalId', ParseIntPipe) id: number,
@@ -67,13 +99,12 @@ export class UsersController {
     return this.usersService.findAllManagerSaleAndRegionalManager(id);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('tableDates')
   findAllDatesUsersByMouth() {
     return this.usersService.findAllDatesNowByAllUsers();
   }
 
-  
   @Get('findAppointments')
   async getDatesForMouthAndYear(
     @Query('month') month?: string,
@@ -283,61 +314,61 @@ export class UsersController {
   `;
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Put('updateInfo')
   updateInfoUser(@Body() UpdateInfoUserDto: UpdateInfoUserDto) {
     return this.usersService.updateInfoUser(UpdateInfoUserDto);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findByAllUsers')
   findByAllUsers() {
     return this.usersService.findBYAllUsers();
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('findByUserAllUsersBranches')
   findByAllUsersByBranch() {
     return this.usersService.findByAllUsersByBranches();
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getAllUsers')
   findAllUsers() {
     return this.usersService.findAllUsers();
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getUserAllSucursales')
   findUserByAllSucursales() {
     return this.usersService.findUserBySucursale();
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getUserBySucursal/:sucursalId')
   findUserBySucursal(@Param('sucursalId', ParseIntPipe) id: number) {
     return this.usersService.findAllUserBySucursale(id);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Get('getUserById/:Id')
   getUserById(@Param('Id', ParseIntPipe) id: number) {
     return this.usersService.getUserById(id);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Post() // http://localhost/users -> POST
   create(@Body() user: CreateUserDto) {
     return this.usersService.create(user);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Put(':id') // http://192.168.1.15:3000/users/:id -> PUT
   update(@Param('id', ParseIntPipe) id: number, @Body() user: UpdateUserDto) {
     return this.usersService.update(id, user);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Patch(':id/password')
   async updatePassword(
     @Param('id') id: number,
@@ -346,21 +377,21 @@ export class UsersController {
     return this.usersService.updatePassword(id, newPassword);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Delete('delete/:id')
   deleteUser(@Param('id', ParseIntPipe) id: number) {
     console.log('ID recibido:', id);
     return this.usersService.deleteUser(id);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Put('active/:id')
   activeUser(@Param('id', ParseIntPipe) id: number) {
     console.log('ID recibido:', id);
     return this.usersService.activeUser(id);
   }
 
-    @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Put('updateWithImage/:id')
   updateWithImage(
     @Param('id', ParseIntPipe) id: number,

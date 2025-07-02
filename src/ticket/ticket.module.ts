@@ -7,12 +7,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity';
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 import { Client } from 'src/clients/entities/client.entity';
+import { MailService } from 'src/auth/service/MailService';
 
 @Module({
    imports : [
       TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client]),
     ],
   controllers: [TicketController],
-  providers: [TicketService],
+  providers: [TicketService, MailService],
 })
 export class TicketModule {}

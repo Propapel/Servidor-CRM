@@ -11,7 +11,8 @@ import { AsignTechnicalDto } from './dto/asign-technical.dto';
 import { TicketStatus } from './enum/ticiket_report_status';
 import { Client } from 'src/clients/entities/client.entity';
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
-
+import storage = require('../utils/cloud_storage.js');
+import { MailService } from 'src/auth/service/MailService';
 @Injectable()
 export class TicketService {
   constructor(
@@ -25,6 +26,7 @@ export class TicketService {
     private readonly clientRepository: Repository<Client>,
     @InjectRepository(Itequipment)
     private readonly itequipRepository: Repository<Itequipment>,
+    private mailService: MailService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto) {
@@ -41,10 +43,28 @@ export class TicketService {
     if (!client) throw new Error('Client not found');
 
     // 3. Buscar equipo
-    const equipo = await this.itequipRepository.findOneBy({
-      id: createTicketDto.itequipId,
-    });
-    if (!equipo) throw new Error('Equipo not found');
+    // 3. Buscar equipo (si existe)
+    let equipo: Itequipment | null = null;
+    if (createTicketDto.itequipId) {
+      equipo = await this.itequipRepository.findOneBy({
+        id: createTicketDto.itequipId,
+      });
+    }
+
+    const newListFiles = [];
+
+    //Upload files
+    if (createTicketDto.files && createTicketDto.files.length > 0) {
+      for (let i = 0; i < createTicketDto.files.length; i++) {
+        const attachment = createTicketDto.files[i];
+        const buffer = Buffer.from(attachment, 'base64');
+        const pathFile = `fileActivity${createTicketDto.clientId}_${Date.now()}`;
+        const fileUrl = await storage(buffer, pathFile, 'image/png');
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+        }
+      }
+    }
 
     // 4. Crear ticket
     const ticket = this.ticketRepository.create({
@@ -53,13 +73,13 @@ export class TicketService {
       apartamentReport: createTicketDto.apartamentReport,
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
-      files: createTicketDto.files,
+      files: newListFiles,
       phoneReport: createTicketDto.phoneReport,
       emailReport: createTicketDto.emailReport,
       status: createTicketDto.status,
       typeOfReport: createTicketDto.typeOfReport,
       cliente: client,
-      equipo: equipo,
+      equipo: equipo ?? null,
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
@@ -72,6 +92,16 @@ export class TicketService {
     });
 
     await this.ticketUpdateRepository.save(updateReport);
+
+    await this.mailService.sendEmailCreatedReport(
+        user.name,
+        savedTicket.id,
+        user.email,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.location,
+        savedTicket.reasonReport
+    )
+
 
     // 6. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
@@ -92,16 +122,16 @@ export class TicketService {
           },
         },
       },
-      relations: ['createdBy', 'assigmentsTechnical', 'updates', 'comments'],
+      relations: ['createdBy', 'assigmentsTechnical', 'updates', 'comments', 'cliente', 'equipo'],
     });
 
     return tickets;
   }
 
-  findOne(id: number) {
-    const ticket = this.ticketRepository.findOne({
+  async findOne(id: number) {
+    const ticket = await this.ticketRepository.findOne({
       where: { id },
-      relations: ['createdBy', 'assigmentsTechnical', 'updates', 'comments'],
+      relations: ['createdBy', 'assigmentsTechnical', 'updates', 'comments', 'cliente', 'equipo'],
     });
     return ticket;
   }

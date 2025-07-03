@@ -87,7 +87,6 @@ export class TicketService {
     // 5. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.CREATED,
-      timestamp: new Date(),
       ticket: savedTicket,
     });
 
@@ -140,7 +139,10 @@ export class TicketService {
     ticketId: number,
     assigmentsTechnical: AsignTechnicalDto,
   ) {
-    const ticket = await this.ticketRepository.findOneBy({ id: ticketId });
+    const ticket = await this.ticketRepository.findOne({ 
+      where: { id: ticketId },
+      relations: ['assigmentsTechnical', 'createdBy'],
+    });
     if (!ticket) {
       throw new Error('Ticket not found');
     }
@@ -159,9 +161,19 @@ export class TicketService {
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.ASSIGNED,
-      timestamp: new Date(),
       ticket: updatedTicket,
     });
+
+     await this.mailService.sendEmailTechnicalAssignReport(
+        ticket.createdBy.name,
+        ticket.id,
+        ticket.createdBy.email,
+        ticket.createdAt.toLocaleDateString(),
+        ticket.location,
+        ticket.reasonReport,
+        technicians.map((tech) => tech.name).join(', ')
+    )
+
 
     await this.ticketUpdateRepository.save(updateReport);
   }

@@ -16,7 +16,7 @@ export class TicketUpdate {
   })
   action: TicketAction;
   // Ej. "Ticket Created", "Assigned to Mark"
-
+ 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   timestamp: Date;
 }

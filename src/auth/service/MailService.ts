@@ -10,6 +10,7 @@ import HTML_TEMPLATE_PROGRESS from './mail_progress_executive';
 import { MailProgressExecutiveDto } from '../dto/mailProgressExecutiveDto';
 import HTML_CREATED_REPORT from './mail_body_created_report';
 import HTML_TECHNICAL_ASSING_REPORT from './mail_body_assigned_technical';
+import HTML_TECHNICAL_CLOSE_TICKET from './mail_body_close_ticket';
 
 @Injectable()
 export class MailService {
@@ -71,6 +72,43 @@ export class MailService {
     };
 
     await this.transporter.sendMail(mailOptions);
+  }
+
+  async closeTicketEmail(
+    userCreatedReport: string,
+    id: number,
+    email: string,
+    fecha: string,
+    ubicacion: string,
+    falla: string,
+    technicalName: string,
+    fechaResolve: string,
+    dias: string,
+    ratingToken: string
+  ) {
+    const mailOptions = {
+      from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: `Ticket #${id}: ${falla}`,
+      html: HTML_TECHNICAL_CLOSE_TICKET(
+        userCreatedReport,
+        id,
+        fecha,
+        ubicacion,
+        falla,
+        technicalName,
+        fechaResolve,
+        dias,
+        ratingToken
+      ),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Correo de alerta enviado a ${email}`);
+    } catch (error) {
+      console.error('Error al enviar el correo de alerta:', error);
+    }
   }
 
    async sendEmailTechnicalAssignReport(

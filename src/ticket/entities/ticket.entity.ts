@@ -62,6 +62,9 @@ export class Ticket {
   @Column({ nullable: true })
   serviceRating: number;
 
+  @Column({ nullable: true })
+  serviceComment: string;
+
   @Column({ type: 'datetime', nullable: true })
   dateAssigment: Date;
 
@@ -97,6 +100,10 @@ export class Ticket {
 
   @OneToMany(() => TicketUpdate, (update) => update.ticket, { cascade: true })
   updates: TicketUpdate[];
+
+  @Column({ nullable: true })
+  ratingToken?: string;
+
 
   @OneToMany(() => TicketComment, (comment) => comment.ticket, {
     cascade: true,

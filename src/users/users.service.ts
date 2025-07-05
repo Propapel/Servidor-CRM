@@ -19,42 +19,6 @@ export class UsersService {
     private sucusalesRepository: Repository<Sucursales>,
     @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
-  /*
- 
-async findInfoUserAppointments(): Promise<InfoTableDatesDto[]> {
-  const today = new Date();
-
-  const validTypes = ['Presencial', 'Reunion Remota'];
-
-  const rawResults = await this.usersRepository
-    .createQueryBuilder('user')
-    .leftJoin('user.customers', 'customer')
-    .leftJoin('user.sucursales', 'sucursal')
-    .leftJoin('customer.reminders', 'reminder')
-    .select([
-      'user.id AS id',
-      "CONCAT(user.name, ' ', user.lastname) AS saleExecutive",
-      'user.wallet AS clave',
-      'COUNT(reminder.reminder_id) AS totalDates',
-    ])
-    .where('(user.email LIKE :optivo OR user.email LIKE :propapel)', {
-      optivo: '%@optivosa.com',
-      propapel: '%@propapel.com.mx',
-    })
-    .andWhere('reminder.is_completed = true')
-    .andWhere('reminder.typeAppointment IN (:...validTypes)', { validTypes })
-    .groupBy('user.id, user.wallet, user.name, user.lastname')
-    .getRawMany();
-
-  // Mapeamos el resultado al DTO esperado
-  return rawResults.map(row => ({
-    saleExecutive: row.saleExecutive,
-    clave: row.clave || 'Sin clave',
-    totalDates: Number(row.totalDates),
-  }));
-}
-
-  */
 
   async findInfoUserAppointments() {
     return await this.usersRepository

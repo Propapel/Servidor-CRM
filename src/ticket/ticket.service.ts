@@ -151,6 +151,34 @@ export class TicketService {
     return ticket;
   }
 
+  async findMyTicketsCreated(id: number){
+    const tickets = await this.ticketRepository.find({
+      where: {
+         createdBy: {
+           id: id
+         }
+      },
+         relations: [
+        'createdBy',
+        'assigmentsTechnical',
+        'updates',
+        'comments',
+        'cliente',
+        'equipo',
+      ],
+    })
+
+    
+    if (!tickets) {
+      throw new HttpException(
+        'No hay tickets',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return tickets
+  }
+
   async findTicketAssigments(id: number) {
     const tickets = await this.ticketRepository.find({
       where: {

@@ -20,6 +20,7 @@ export class CronService {
     return hour >= 0 && hour < 12 ? 'AM' : 'PM';
   }
 
+   /*
     @Cron('30 10 * * 6', {
     name: 'Reporte ejecutivo todos los sábados a las 2:30PM',
     timeZone: 'America/Mexico_City',
@@ -85,6 +86,7 @@ export class CronService {
 
     console.log('Se enviaron reportes semanales de ejecutivos');
   }
+   */
 
   // Cron job para verificar las citas a las 9:30 AM
   @Cron(CronExpression.EVERY_DAY_AT_9AM, {

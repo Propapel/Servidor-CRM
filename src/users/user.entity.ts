@@ -15,6 +15,7 @@ import { LeadNote } from 'src/lead-notes/entities/lead-note.entity';
 import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
 import { Task } from 'src/task/entities/task.entity';
 import { Client } from 'src/clients/entities/client.entity';
+import { Permission } from 'src/permission/entities/permission.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -89,9 +90,17 @@ export class User {
   @OneToMany(() => CalendarEvent, (activity) => activity.createdBy)
   events: CalendarEvent[];
 
-  @Column({default: ''})
+  @Column({ default: '' })
   wallet: string;
 
   @ManyToMany(() => CalendarEvent, (event) => event.participants)
   participatingEvents: CalendarEvent[];
+
+  @ManyToMany(() => Permission)
+  @JoinTable({
+    name: 'user_has_permissions',
+    joinColumn: { name: 'id_user' },
+    inverseJoinColumn: { name: 'id_permission' },
+  })
+  permissions: Permission[];
 }

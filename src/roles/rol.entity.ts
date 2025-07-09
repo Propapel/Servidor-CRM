@@ -1,29 +1,35 @@
+import { Permission } from 'src/permission/entities/permission.entity';
+import { User } from 'src/users/user.entity';
+import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn } from 'typeorm';
 
-import { User } from "src/users/user.entity";
-import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn } from "typeorm";
-
-@Entity({name: 'roles'})
+@Entity({ name: 'roles' })
 export class Rol {
-    
-    @PrimaryColumn()
-    id: string;
+  @PrimaryColumn()
+  id: string;
 
-    @Column({ unique: true })
-    name: string
-    
-    @Column()
-    image: string
+  @Column({ unique: true })
+  name: string;
 
-    @Column()
-    route: string
+  @Column()
+  image: string;
 
-    @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
-    created_at: Date;
-    
-    @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
-    updated_at: Date;
+  @ManyToMany(() => Permission, (permission) => permission.roles)
+  @JoinTable({
+    name: 'roles_permissions',
+    joinColumn: { name: 'id_rol' },
+    inverseJoinColumn: { name: 'id_permission' },
+  })
+  permissions: Permission[];
 
-    @ManyToMany(() => User, (user) => user.roles)
-    users: User[];
+  @Column()
+  route: string;
 
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  created_at: Date;
+
+  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  updated_at: Date;
+
+  @ManyToMany(() => User, (user) => user.roles)
+  users: User[];
 }

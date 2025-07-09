@@ -17,6 +17,9 @@ export class Client {
   @Column()
   sucursalId: number;
 
+  @Column('simple-json', { nullable: true })
+  correoElectronicos: string[];
+
   @OneToMany(() => Department, (departamento) => departamento.cliente)
   departamentos: Department[];
 

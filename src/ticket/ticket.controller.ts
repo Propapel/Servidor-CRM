@@ -24,11 +24,20 @@ import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  @UseGuards(AccessTokenGuard)
   @Get('technical/assigments/:id')
   findMyTicketAssignment(
     @Param('id', ParseIntPipe) id: number,
   ){
       return this.ticketService.findTicketAssigments(id)
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Get('findMyTicketsCreated/:id')
+  findMyTicketsCreated(
+    @Param('id', ParseIntPipe) id: number,
+  ){
+      return this.ticketService.findMyTicketsCreated(id)
   }
 
   @UseGuards(AccessTokenGuard)

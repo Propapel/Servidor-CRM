@@ -35,6 +35,7 @@ import { TicketCommentModule } from './ticket-comment/ticket-comment.module';
 import { ClientsModule } from './clients/clients.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { ItequipmentsModule } from './itequipments/itequipments.module';
+import { PermissionModule } from './permission/permission.module';
 
 @Module({
   imports: [
@@ -77,7 +78,8 @@ import { ItequipmentsModule } from './itequipments/itequipments.module';
     TicketCommentModule,
     ClientsModule,
     DepartmentsModule,
-    ItequipmentsModule
+    ItequipmentsModule,
+    PermissionModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

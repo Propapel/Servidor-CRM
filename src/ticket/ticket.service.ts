@@ -168,14 +168,6 @@ export class TicketService {
       ],
     })
 
-    
-    if (!tickets) {
-      throw new HttpException(
-        'No hay tickets',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
     return tickets
   }
 
@@ -196,12 +188,6 @@ export class TicketService {
       ],
     });
 
-    if (!tickets) {
-      throw new HttpException(
-        'No hay tickets',
-        HttpStatus.NOT_FOUND,
-      );
-    }
 
     return tickets
   }

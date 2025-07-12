@@ -1,20 +1,17 @@
-const HTML_TECHNICAL_CLOSE_TICKET = (
+const HTML_TECHNICAL_ON_PROGRESS_TICKET = (
   userCreatedReport,
   id,
   fecha,
   ubicacion,
   descripcion,
   nombreTecnico,
-  fechaResolve,
-  dias,
-  ratingToken
 ) => {
   return `
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ticket Resuelto - Propapel</title>
+  <title>Asignación de Técnico - Propapel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     body {
@@ -57,23 +54,6 @@ const HTML_TECHNICAL_CLOSE_TICKET = (
       font-size: 14px;
       margin: 8px 0;
     }
-    .button-container {
-      text-align: center;
-      margin-top: 20px;
-    }
-    .rate-button {
-      display: inline-block;
-      background-color: #0d47a1;
-      color: white;
-      text-decoration: none;
-      padding: 10px 20px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 14px;
-    }
-    .rate-button:hover {
-      background-color: #1565c0;
-    }
     .footer {
       font-size: 11px;
       color: #777777;
@@ -90,36 +70,29 @@ const HTML_TECHNICAL_CLOSE_TICKET = (
 
     <div class="content">
       <p>Hola <strong>${userCreatedReport}</strong>,</p>
-      <p>Queremos informarte que tu ticket ha sido <strong>resuelto</strong> correctamente.</p>
+      <p>Queremos informarte que el técnico asignado ya se encuentra trabajando en la atención de tu ticket.</p>
 
       <div class="info-box">
         <p><span class="label">Número de ticket:</span> <a href="#">#${id}</a></p>
         <p><span class="label">Fecha de solicitud:</span> ${fecha}</p>
-        <p><span class="label">Fecha de resolución:</span> ${fechaResolve}</p>
-        <p><span class="label">Tiempo de resolución:</span> ${dias} días</p>
         <p><span class="label">Técnico asignado:</span> ${nombreTecnico}</p>
         <p><span class="label">Ubicación:</span> ${ubicacion}</p>
       </div>
 
       <div class="section">
-        <p><strong>Descripción del problema:</strong></p>
+        <p><strong>Descripción del incidente:</strong></p>
         <p>${descripcion}</p>
       </div>
 
-      <p>Puedes consultar el reporte generado en tu aplicación de CRM, en el apartado de <strong>Reportes</strong>.</p>
+      <p>Agradecemos tu confianza y estamos comprometidos en ofrecerte una solución eficiente.</p>
 
-      <div class="button-container">
-        <a href="https://www.erppropapel.com/ticket/qualifyTicket?token=${ratingToken}" class="rate-button">Califica el servicio</a>
-      </div>
+      <p>Quedamos atentos ante cualquier duda adicional.</p>
 
-      <p>Gracias por utilizar nuestro sistema de soporte.</p>
-
-      <p>Saludos cordiales,</p>
       <p><strong>Equipo de Soporte Técnico</strong><br>Propapel</p>
     </div>
 
     <div class="footer">
-      Este correo fue generado automáticamente. Si tienes dudas, contáctanos desde nuestra plataforma de soporte.<br><br>
+      Este correo ha sido generado automáticamente. Si necesitas ayuda adicional, por favor contáctanos a través de la plataforma de soporte.<br><br>
       ServiceDesk | Departamento de SAI | Área de Soporte Técnico.<br>
       © Propapel 2025. Todos los derechos reservados.
     </div>
@@ -127,8 +100,7 @@ const HTML_TECHNICAL_CLOSE_TICKET = (
 </body>
 </html>
 
-
       `;
 };
 
-export default HTML_TECHNICAL_CLOSE_TICKET;
+export default HTML_TECHNICAL_ON_PROGRESS_TICKET;

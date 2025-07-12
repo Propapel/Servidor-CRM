@@ -206,6 +206,48 @@ export class TicketService {
     return tickets
   }
 
+  /**
+   * Function to mark a ticket as in progress
+   * 
+   * 
+   * @param ticketId  The ID of the ticket to mark as in progress
+   * @return {Promise<void>} A promise that resolves when the ticket is marked as in progress
+   * @throws {Error} If the ticket is not found
+   */
+   async inProgressReport(
+    ticketId: number
+  ) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId },
+      relations: ['assigmentsTechnical', 'createdBy','assigmentsTechnical',],
+    });
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+  
+    ticket.status = TicketStatus.EN_PROCESO;
+    const updatedTicket = await this.ticketRepository.save(ticket);
+
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.ONPROGRESS,
+      ticket: updatedTicket,
+    });
+
+  
+    await this.mailService.sendEmailOnProgressTicket(
+      ticket.createdBy.name,
+      ticket.id,
+      ticket.createdBy.email,
+      ticket.createdAt.toLocaleDateString(),
+      ticket.location,
+      ticket.reasonReport,
+      ticket.assigmentsTechnical.map((tech) => tech.name).join(', '),
+    );
+
+    await this.ticketUpdateRepository.save(updateReport);
+  }
+
   async asigngTicketToTechnical(
     ticketId: number,
     assigmentsTechnical: AsignTechnicalDto,

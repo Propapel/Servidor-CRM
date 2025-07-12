@@ -32,6 +32,14 @@ export class TicketController {
       return this.ticketService.findTicketAssigments(id)
   }
 
+   @UseGuards(AccessTokenGuard)
+  @Post('technical/onProgressTicket/:id')
+  markWithOnProgressTicket(
+    @Param('id', ParseIntPipe) id: number,
+  ){
+      return this.ticketService.inProgressReport(id)
+  }
+
   @UseGuards(AccessTokenGuard)
   @Get('findMyTicketsCreated/:id')
   findMyTicketsCreated(

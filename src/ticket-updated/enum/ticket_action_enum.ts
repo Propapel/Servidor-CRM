@@ -1,5 +1,6 @@
 export enum TicketAction {
   CREATED = 'CREATED',
+  ONPROGRESS = 'ONPROGRESS',
   ASSIGNED = 'ASSIGNED',
   RESOLVED = 'RESOLVED',
   REOPENED = 'REOPENED',

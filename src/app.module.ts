@@ -36,6 +36,9 @@ import { ClientsModule } from './clients/clients.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { ItequipmentsModule } from './itequipments/itequipments.module';
 import { PermissionModule } from './permission/permission.module';
+import { ProductModule } from './product/product.module';
+import { LicenseModule } from './license/license.module';
+import { LicenseAssignmentModule } from './license-assignment/license-assignment.module';
 
 @Module({
   imports: [
@@ -79,7 +82,10 @@ import { PermissionModule } from './permission/permission.module';
     ClientsModule,
     DepartmentsModule,
     ItequipmentsModule,
-    PermissionModule
+    PermissionModule,
+    ProductModule,
+    LicenseModule,
+    LicenseAssignmentModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

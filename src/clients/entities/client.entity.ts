@@ -1,4 +1,5 @@
 import { Department } from "src/departments/entities/department.entity";
+import { LicenseAssignment } from "src/license-assignment/entities/license-assignment.entity";
 import { Ticket } from "src/ticket/entities/ticket.entity";
 import { User } from "src/users/user.entity";
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
@@ -25,6 +26,9 @@ export class Client {
 
   @OneToMany(() => Ticket, (ticket) => ticket.cliente)
   tickets: Ticket[];
+
+   @OneToMany(() => LicenseAssignment, (assignment) => assignment.client)
+  assignments: LicenseAssignment[];
 
    @ManyToOne(() => User, (user) => user.clients, {
     nullable: true,

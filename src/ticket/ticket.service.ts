@@ -37,13 +37,13 @@ export class TicketService {
     const user = await this.userRepository.findOneBy({
       id: createTicketDto.userCreated,
     });
-    if (!user) throw new Error('User not found');
+    if (!user) throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
 
     // 2. Buscar cliente
     const client = await this.clientRepository.findOneBy({
       id: createTicketDto.clientId,
     });
-    if (!client) throw new Error('Client not found');
+    if (!client) throw  new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
 
     // 3. Buscar equipo
     // 3. Buscar equipo (si existe)
@@ -243,7 +243,7 @@ export class TicketService {
       relations: ['assigmentsTechnical', 'createdBy'],
     });
     if (!ticket) {
-      throw new Error('Ticket not found');
+      throw  new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
     }
 
     const technicians = await this.userRepository.find({
@@ -251,7 +251,7 @@ export class TicketService {
     });
 
     if (technicians.length === 0) {
-      throw new Error('No technicians found for the provided IDs');
+      throw new HttpException('Tecnicos no encontrados', HttpStatus.NOT_FOUND);
     }
 
     ticket.assigmentsTechnical = technicians;

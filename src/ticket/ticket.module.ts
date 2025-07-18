@@ -8,10 +8,11 @@ import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity'
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 import { Client } from 'src/clients/entities/client.entity';
 import { MailService } from 'src/auth/service/MailService';
+import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
 
 @Module({
    imports : [
-      TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client]),
+      TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client, TicketComment]),
     ],
   controllers: [TicketController],
   providers: [TicketService, MailService],

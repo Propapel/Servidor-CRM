@@ -60,6 +60,9 @@ export class Ticket {
   pdfPageService: string;
 
   @Column({ nullable: true })
+  imagePageService: string;
+
+  @Column({ nullable: true })
   serviceRating: number;
 
   @Column({ nullable: true })

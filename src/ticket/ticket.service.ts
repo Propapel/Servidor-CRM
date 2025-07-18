@@ -16,6 +16,8 @@ import { MailService } from 'src/auth/service/MailService';
 import { CloseTicketDto } from './dto/close_ticket.dto';
 import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
+import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
 @Injectable()
 export class TicketService {
   constructor(
@@ -30,6 +32,8 @@ export class TicketService {
     @InjectRepository(Itequipment)
     private readonly itequipRepository: Repository<Itequipment>,
     private mailService: MailService,
+    @InjectRepository(TicketComment)
+    private readonly ticketCommentRepository: Repository<TicketComment>,
   ) {}
 
   async create(createTicketDto: CreateTicketDto) {
@@ -37,13 +41,15 @@ export class TicketService {
     const user = await this.userRepository.findOneBy({
       id: createTicketDto.userCreated,
     });
-    if (!user) throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    if (!user)
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
 
     // 2. Buscar cliente
     const client = await this.clientRepository.findOneBy({
       id: createTicketDto.clientId,
     });
-    if (!client) throw  new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+    if (!client)
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
 
     // 3. Buscar equipo
     // 3. Buscar equipo (si existe)
@@ -104,6 +110,17 @@ export class TicketService {
       savedTicket.reasonReport,
     );
 
+    if(savedTicket.nameReported.trim() !== ''){
+       await this.mailService.sendEmailCreatedReport(
+      savedTicket.nameReported,
+      savedTicket.id,
+      savedTicket.emailReport,
+      savedTicket.createdAt.toLocaleDateString(),
+      savedTicket.location,
+      savedTicket.reasonReport,
+    );
+    }
+
     // 6. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
       where: { id: savedTicket.id },
@@ -128,6 +145,7 @@ export class TicketService {
         'assigmentsTechnical',
         'updates',
         'comments',
+        'comments.author',
         'cliente',
         'equipo',
       ],
@@ -144,6 +162,7 @@ export class TicketService {
         'assigmentsTechnical',
         'updates',
         'comments',
+        'comments.author',
         'cliente',
         'equipo',
       ],
@@ -151,24 +170,25 @@ export class TicketService {
     return ticket;
   }
 
-  async findMyTicketsCreated(id: number){
+  async findMyTicketsCreated(id: number) {
     const tickets = await this.ticketRepository.find({
       where: {
-         createdBy: {
-           id: id
-         }
+        createdBy: {
+          id: id,
+        },
       },
-         relations: [
+      relations: [
         'createdBy',
         'assigmentsTechnical',
         'updates',
         'comments',
+        'comments.author',
         'cliente',
         'equipo',
       ],
-    })
+    });
 
-    return tickets
+    return tickets;
   }
 
   async findTicketAssigments(id: number) {
@@ -183,35 +203,32 @@ export class TicketService {
         'assigmentsTechnical',
         'updates',
         'comments',
+        'comments.author',
         'cliente',
         'equipo',
       ],
     });
 
-
-    return tickets
+    return tickets;
   }
 
   /**
    * Function to mark a ticket as in progress
-   * 
-   * 
+   *
+   *
    * @param ticketId  The ID of the ticket to mark as in progress
    * @return {Promise<void>} A promise that resolves when the ticket is marked as in progress
    * @throws {Error} If the ticket is not found
    */
-   async inProgressReport(
-    ticketId: number
-  ) {
+  async inProgressReport(ticketId: number) {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
-      relations: ['assigmentsTechnical', 'createdBy','assigmentsTechnical',],
+      relations: ['assigmentsTechnical', 'createdBy', 'assigmentsTechnical'],
     });
     if (!ticket) {
       throw new Error('Ticket not found');
     }
 
-  
     ticket.status = TicketStatus.EN_PROCESO;
     const updatedTicket = await this.ticketRepository.save(ticket);
 
@@ -220,7 +237,6 @@ export class TicketService {
       ticket: updatedTicket,
     });
 
-  
     await this.mailService.sendEmailOnProgressTicket(
       ticket.createdBy.name,
       ticket.id,
@@ -243,7 +259,7 @@ export class TicketService {
       relations: ['assigmentsTechnical', 'createdBy'],
     });
     if (!ticket) {
-      throw  new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
     }
 
     const technicians = await this.userRepository.find({
@@ -276,27 +292,13 @@ export class TicketService {
     await this.ticketUpdateRepository.save(updateReport);
   }
 
-  async closeTicket(ticketId: number, closeTicketDto: CloseTicketDto) {
+  async closeTicket(ticketId: number) {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
       relations: ['createdBy', 'assigmentsTechnical'],
     });
     if (!ticket) {
       throw new Error('Ticket not found');
-    }
-    if (
-      closeTicketDto.pdfPageService &&
-      closeTicketDto.pdfPageService.trim() !== ''
-    ) {
-      const buffer = Buffer.from(closeTicketDto.pdfPageService, 'base64');
-      const pathPdf = `pdf_service_Ticket${ticketId}_${Date.now()}`;
-      const pdfUrl = await storage(buffer, pathPdf, 'application/pdf');
-
-      if (pdfUrl) {
-        ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
-      }
-    } else {
-      throw new Error('PDF page service is required');
     }
     ticket.ratingToken = uuidv4();
     ticket.resolved = true;
@@ -531,6 +533,13 @@ export class TicketService {
 `;
   }
 
+  /**
+   * Function to rate a ticket after it has been resolved
+   * 
+   * @param id The ID of the ticket to rate
+   * @param dto The DTO containing the rating information
+   * @returns 
+   */
   async rateTicket(id: number, dto: RateTicketDto) {
     const ticket = await this.ticketRepository.findOne({
       where: { id },
@@ -552,8 +561,135 @@ export class TicketService {
     };
   }
 
-  update(id: number, updateTicketDto: UpdateTicketDto) {
-    return `This action updates a #${id} ticket`;
+  /**
+   * Function to upload a pdf to a ticket
+   * 
+   * @param id The ID of the ticket to upload the PDF
+   * @param pdf The base64 encoded PDF string
+   */
+  async uploadPdfService(id: number, pdf: string) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: id },
+      relations: ['createdBy', 'assigmentsTechnical'],
+    });
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+    if (pdf && pdf.trim() !== '') {
+      const buffer = Buffer.from(pdf, 'base64');
+      const pathPdf = `pdf_service_Ticket${id}_${Date.now()}`;
+      const pdfUrl = await storage(buffer, pathPdf, 'application/pdf');
+
+      if (pdfUrl) {
+        ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
+      }
+    } else {
+      throw new HttpException('PDF page service is required', HttpStatus.BAD_REQUEST);
+    }
+    await this.ticketRepository.save(ticket);
+  }
+
+  /**
+   * Fuction to upload an image of service to a ticket
+   * 
+   * @param id The ID of the ticket to upload the image
+   * @param image The base64 encoded image string
+   */
+  async uploadImageService(id: number, image: string) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: id },
+    });
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+    if (image && image.trim() !== '') {
+      const buffer = Buffer.from(image, 'base64');
+      const pathPdf = `image_service_Ticket${id}_${Date.now()}`;
+      const imageResult = await storage(buffer, pathPdf, 'image/png');
+
+      if (imageResult) {
+        ticket.imagePageService = imageResult; // Guarda la URL de la imagen
+      }
+    } else {
+      throw new Error('PDF page service is required');
+    }
+    await this.ticketRepository.save(ticket);
+  }
+
+  /**
+   * Fuction to update a ticket
+   * @param id The ID of the ticket to update
+   * @param updateTicketDto The DTO containing the updated ticket information
+   * @return {Promise<void>} A promise that resolves when the ticket is updated
+   * @throws {HttpException} If the ticket is not found
+   */
+  async update(id: number, updateTicketDto: UpdateTicketDto) {
+    const ticketFound = await this.ticketRepository.findOne({
+      where: {
+        id: id,
+      },
+    });
+
+    if (!ticketFound) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    ticketFound.nameReported = updateTicketDto.nameReported;
+    ticketFound.apartamentReport = updateTicketDto.apartamentReport;
+    ticketFound.phoneReport = updateTicketDto.phoneReport;
+    ticketFound.emailReport = updateTicketDto.emailReport;
+    ticketFound.reasonReport = updateTicketDto.reasonReport;
+    ticketFound.location = updateTicketDto.location;
+
+    return this.ticketRepository.save(ticketFound);
+  }
+
+  /**
+   * Function to add a comment to a ticket
+   * 
+   * @param addCommentTicketDto The DTO containing the comment information
+   * @throws {HttpException} If the ticket or user is not found
+   * @throws {HttpException} If the user is not found
+   * @returns 
+   */
+  async addComment(addCommentTicketDto: AddCommentTicketDto) {
+    const ticketFound = await this.ticketRepository.findOne({
+       where: {
+         id: addCommentTicketDto.ticketId
+       }
+    })
+
+    if (!ticketFound) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: addCommentTicketDto.userId },
+    });
+
+    if (!user) {
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    let imageUrl = '';
+    if (addCommentTicketDto.imageUrl && addCommentTicketDto.imageUrl.trim() !== '') {
+      const buffer = Buffer.from(addCommentTicketDto.imageUrl, 'base64');
+      const pathPdf = `image_comment_${addCommentTicketDto.userId}_Ticket${addCommentTicketDto.ticketId}_${Date.now()}`;
+      const imageResult = await storage(buffer, pathPdf, 'image/png');
+
+      if (imageResult) {
+        imageUrl = imageResult; // Guarda la URL de la imagen
+      }
+    } 
+
+    const comment = this.ticketCommentRepository.create({
+      ticket: ticketFound,
+      author: user,
+      content: addCommentTicketDto.comment,
+      imageUrl: imageUrl
+    });
+
+    await this.ticketCommentRepository.save(comment);
   }
 
   remove(id: number) {

@@ -5,16 +5,16 @@ import { TicketPriority } from '../enum/ticket_priority';
 import { TypeOfReport } from '../enum/kind_report';
 
 export class CreateTicketDto {
-  userCreated: number;
-  nameReported: string;
-  apartamentReport: string;
-  phoneReport: string;
-  emailReport: string;
-  reasonReport: string;
+  userCreated?: number;
+  nameReported?: string;
+  apartamentReport?: string;
+  phoneReport?: string;
+  emailReport?: string;
+  reasonReport?: string;
   location?: string;
   files?: string[];
   status: TicketStatus;
-  typeOfReport: TypeOfReport;
+  typeOfReport?: TypeOfReport;
   clientId: number;
   itequipId: number;
 }

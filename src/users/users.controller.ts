@@ -54,6 +54,12 @@ export class UsersController {
     return this.usersService.findInfoUserAppointments();
   }
 
+  @Get('fetchAllUserAppointments')
+  fetchAllUserAppointments() {
+    return this.usersService.findInfoUserAppointments();
+  }
+
+
   /**
    * Retrieves appointments for users by branch ID.
    * This endpoint is protected by the AccessTokenGuard,

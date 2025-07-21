@@ -20,6 +20,30 @@ export class UsersService {
     @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
 
+  async fetchAllUserAppointments() {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.customers', 'customer')
+      .leftJoin('user.sucursales', 'sucursal')
+      .leftJoin('customer.reminders', 'reminder')
+      .select([
+        'user.id AS id',
+        "CONCAT(user.name, ' ', user.lastname) AS Ejecutivo",
+        'sucursal.nombre AS Sucursal',
+        'user.wallet AS Cartera',
+        'customer.company_name AS RazonSocial',
+        'reminder.typeAppointment AS TipoDeCita',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS Hora',
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS Fecha'
+      ])
+      .where('reminder.reminder_date IS NOT NULL')
+      .andWhere(
+        `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`,
+      )
+      .andWhere('reminder.typeAppointment IS NOT NULL')
+      .getRawMany();
+  }
+
   async findInfoUserAppointments() {
     return await this.usersRepository
       .createQueryBuilder('user')

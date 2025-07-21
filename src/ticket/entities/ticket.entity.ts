@@ -17,6 +17,7 @@ import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity'
 import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
 import { Client } from 'src/clients/entities/client.entity';
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
+import { TicketAttentionType } from '../enum/ticket_attention_type';
 
 @Entity('ticket')
 export class Ticket {
@@ -83,6 +84,13 @@ export class Ticket {
 
   @Column({
     type: 'enum',
+    enum: TicketAttentionType,
+    nullable: true, // o false si es obligatorio
+  })
+  attentionType: TicketAttentionType;
+
+  @Column({
+    type: 'enum',
     enum: TicketStatus,
     default: TicketStatus.SIN_ASIGNAR,
   })
@@ -106,7 +114,6 @@ export class Ticket {
 
   @Column({ nullable: true })
   ratingToken?: string;
-
 
   @OneToMany(() => TicketComment, (comment) => comment.ticket, {
     cascade: true,

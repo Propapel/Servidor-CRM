@@ -56,7 +56,7 @@ export class UsersController {
 
   @Get('fetchAllUserAppointments')
   fetchAllUserAppointments() {
-    return this.usersService.findInfoUserAppointments();
+    return this.usersService.fetchAllUserAppointments();
   }
 
 

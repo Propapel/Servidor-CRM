@@ -110,15 +110,15 @@ export class TicketService {
       savedTicket.reasonReport,
     );
 
-    if(savedTicket.nameReported.trim() !== ''){
-       await this.mailService.sendEmailCreatedReport(
-      savedTicket.nameReported,
-      savedTicket.id,
-      savedTicket.emailReport,
-      savedTicket.createdAt.toLocaleDateString(),
-      savedTicket.location,
-      savedTicket.reasonReport,
-    );
+    if (savedTicket.nameReported.trim() !== '') {
+      await this.mailService.sendEmailCreatedReport(
+        savedTicket.nameReported,
+        savedTicket.id,
+        savedTicket.emailReport,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.location,
+        savedTicket.reasonReport,
+      );
     }
 
     // 6. Retornar ticket con relaciones
@@ -149,6 +149,9 @@ export class TicketService {
         'cliente',
         'equipo',
       ],
+      order: {
+        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
+      },
     });
 
     return tickets;
@@ -186,6 +189,9 @@ export class TicketService {
         'cliente',
         'equipo',
       ],
+      order: {
+        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
+      },
     });
 
     return tickets;
@@ -207,6 +213,9 @@ export class TicketService {
         'cliente',
         'equipo',
       ],
+      order: {
+        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
+      },
     });
 
     return tickets;
@@ -271,6 +280,7 @@ export class TicketService {
     }
 
     ticket.assigmentsTechnical = technicians;
+    ticket.attentionType = assigmentsTechnical.ticketAttentionType;
     ticket.status = TicketStatus.ASIGNADO;
     const updatedTicket = await this.ticketRepository.save(ticket);
 
@@ -535,10 +545,10 @@ export class TicketService {
 
   /**
    * Function to rate a ticket after it has been resolved
-   * 
+   *
    * @param id The ID of the ticket to rate
    * @param dto The DTO containing the rating information
-   * @returns 
+   * @returns
    */
   async rateTicket(id: number, dto: RateTicketDto) {
     const ticket = await this.ticketRepository.findOne({
@@ -563,7 +573,7 @@ export class TicketService {
 
   /**
    * Function to upload a pdf to a ticket
-   * 
+   *
    * @param id The ID of the ticket to upload the PDF
    * @param pdf The base64 encoded PDF string
    */
@@ -584,14 +594,17 @@ export class TicketService {
         ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
       }
     } else {
-      throw new HttpException('PDF page service is required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'PDF page service is required',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     await this.ticketRepository.save(ticket);
   }
 
   /**
    * Fuction to upload an image of service to a ticket
-   * 
+   *
    * @param id The ID of the ticket to upload the image
    * @param image The base64 encoded image string
    */
@@ -646,18 +659,18 @@ export class TicketService {
 
   /**
    * Function to add a comment to a ticket
-   * 
+   *
    * @param addCommentTicketDto The DTO containing the comment information
    * @throws {HttpException} If the ticket or user is not found
    * @throws {HttpException} If the user is not found
-   * @returns 
+   * @returns
    */
   async addComment(addCommentTicketDto: AddCommentTicketDto) {
     const ticketFound = await this.ticketRepository.findOne({
-       where: {
-         id: addCommentTicketDto.ticketId
-       }
-    })
+      where: {
+        id: addCommentTicketDto.ticketId,
+      },
+    });
 
     if (!ticketFound) {
       throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
@@ -672,7 +685,10 @@ export class TicketService {
     }
 
     let imageUrl = '';
-    if (addCommentTicketDto.imageUrl && addCommentTicketDto.imageUrl.trim() !== '') {
+    if (
+      addCommentTicketDto.imageUrl &&
+      addCommentTicketDto.imageUrl.trim() !== ''
+    ) {
       const buffer = Buffer.from(addCommentTicketDto.imageUrl, 'base64');
       const pathPdf = `image_comment_${addCommentTicketDto.userId}_Ticket${addCommentTicketDto.ticketId}_${Date.now()}`;
       const imageResult = await storage(buffer, pathPdf, 'image/png');
@@ -680,13 +696,13 @@ export class TicketService {
       if (imageResult) {
         imageUrl = imageResult; // Guarda la URL de la imagen
       }
-    } 
+    }
 
     const comment = this.ticketCommentRepository.create({
       ticket: ticketFound,
       author: user,
       content: addCommentTicketDto.comment,
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
     });
 
     await this.ticketCommentRepository.save(comment);
@@ -694,5 +710,277 @@ export class TicketService {
 
   remove(id: number) {
     return `This action removes a #${id} ticket`;
+  }
+
+  async sendPageService(id: number) {
+    const ticketFound = await this.ticketRepository.findOne({
+      where: {
+        id: id,
+      },
+    });
+    if (!ticketFound) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+  }
+  async checkStatusTicket(id: number) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id },
+      relations: ['cliente'],
+    });
+
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const steps = this.getProgressSteps(ticket.status);
+
+    const resolvedMessage =
+      ticket.status === TicketStatus.RESUELTO
+        ? `<div style="text-align: center; margin-top: 30px; padding: 15px; background: #E8F5E9; border-radius: 8px; color: #2E7D32; font-weight: bold;">
+          ✅ ¡Tu ticket ha sido resuelto!
+        </div>`
+        : '';
+
+    const resolveDate =
+      ticket.status === TicketStatus.RESUELTO && ticket.resolvedAt
+        ? `<p><strong>Fecha de resolución:</strong> ${ticket.resolvedAt.toLocaleDateString()}</p>`
+        : '';
+
+    const fechaSolicitud = new Date(ticket.createdAt);
+    const fechaResolucion = ticket.resolvedAt
+      ? new Date(ticket.resolvedAt)
+      : null;
+    const dias =
+      ticket.status === TicketStatus.RESUELTO && fechaResolucion
+        ? Math.ceil(
+            (fechaResolucion.getTime() - fechaSolicitud.getTime()) /
+              (1000 * 60 * 60 * 24),
+          )
+        : null;
+
+    const timeResolution =
+      dias !== null
+        ? `<p><strong>Tiempo de resolución:</strong> ${dias} día${dias !== 1 ? 's' : ''}</p>`
+        : '';
+
+    return `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Seguimiento de Ticket</title>
+        <!--====== Favicon Icon ======-->
+    <link rel="shortcut icon" href="https://1.bp.blogspot.com/-rK4-Xp5tY_U/X_4ZjWc4cqI/AAAAAAAABbQ/HYMo-KaYvOwAUV0ZD0ORfD6NOrF-KRr0wCLcBGAsYHQ/s1431/Propapel-logo.png" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+     * {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #3131f0ff;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 700px;
+  width: 100%;
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.header-image {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.header-image img {
+  max-width: 150px;
+  margin: 0 auto;
+}
+
+h2 {
+  color: #4B0082;
+  margin-bottom: 20px;
+}
+
+p {
+  font-size: 15px;
+  margin: 6px 0;
+}
+
+.progress-container {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 30px 0;
+}
+
+.progress-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 4px;
+  width: 100%;
+  background: #ddd;
+  z-index: 0;
+  transform: translateY(-50%);
+}
+
+.step {
+  position: relative;
+  text-align: center;
+  z-index: 1;
+  flex: 1;
+}
+
+.circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ddd;
+  margin: 0 auto;
+  line-height: 30px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.step p {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #999;
+  font-weight: normal;
+}
+
+.step.done .circle {
+  background: #00C853;
+}
+
+.step.active .circle {
+  background: #4B0082;
+}
+
+.step.done p,
+.step.active p {
+  color: #4B0082;
+  font-weight: bold;
+}
+
+.whatsapp-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #25D366;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 50px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 999;
+  transition: background 0.3s;
+}
+
+.whatsapp-button:hover {
+  background-color: #1ebd5a;
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <h2>Seguimiento de tu Ticket</h2>
+
+      <p><strong>Número de Ticket:</strong> #${ticket.id}</p>
+      <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
+      <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
+      ${resolveDate}
+      ${timeResolution}
+
+      <div class="progress-container">
+        <div class="step ${steps.creado}">
+          <div class="circle">1</div><p>Creado</p>
+        </div>
+        <div class="step ${steps.asignado}">
+          <div class="circle">2</div><p>Asignado</p>
+        </div>
+        <div class="step ${steps.enProceso}">
+          <div class="circle">3</div><p>En Proceso</p>
+        </div>
+        <div class="step ${steps.resuelto}">
+          <div class="circle">4</div><p>Resuelto</p>
+        </div>
+      </div>
+<div class="header-image">
+        <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" alt="Soporte">
+      </div>
+      ${resolvedMessage}
+      
+    </div>
+
+    
+
+    <a href="https://wa.me/5219995769245?text=Hola,%20necesito%20ayuda%20con%20mi%20ticket%20%23${ticket.id}" target="_blank" class="whatsapp-button">
+      💬 Contactar por WhatsApp
+    </a>
+  </body>
+  </html>
+  `;
+  }
+
+  getProgressSteps(status: TicketStatus) {
+    switch (status) {
+      case TicketStatus.SIN_ASIGNAR:
+        return {
+          creado: 'active',
+          asignado: '',
+          enProceso: '',
+          resuelto: '',
+        };
+
+      case TicketStatus.ASIGNADO:
+        return {
+          creado: 'done',
+          asignado: 'active',
+          enProceso: '',
+          resuelto: '',
+        };
+
+      case TicketStatus.EN_PROCESO:
+        return {
+          creado: 'done',
+          asignado: 'done',
+          enProceso: 'active',
+          resuelto: '',
+        };
+
+      case TicketStatus.RESUELTO:
+        return {
+          creado: 'done',
+          asignado: 'done',
+          enProceso: 'done',
+          resuelto: 'active',
+        };
+
+      default:
+        return {
+          creado: '',
+          asignado: '',
+          enProceso: '',
+          resuelto: '',
+        };
+    }
   }
 }

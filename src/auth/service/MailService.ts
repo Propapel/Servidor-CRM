@@ -19,7 +19,6 @@ export class MailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      
       host: process.env.MAIL_HOST,
       port: Number(process.env.MAIL_PORT),
       secure: process.env.MAIL_SECURE === 'true',
@@ -45,7 +44,7 @@ export class MailService {
     notifityAlertAssignedCustomer: NotifityAlertAssignedCustomer,
   ) {
     const mailOptions = {
-      from:  `"CRM Propapel" <${process.env.MAIL_USER}>`,
+      from: `"CRM Propapel" <${process.env.MAIL_USER}>`,
       to: notifityAlertAssignedCustomer.emailUserAssignment,
       subject: 'Asignación de cliente🧍‍♂️',
       html: HTML_ASSING_USER_ALERT(
@@ -86,7 +85,7 @@ export class MailService {
     technicalName: string,
     fechaResolve: string,
     dias: string,
-    ratingToken: string
+    ratingToken: string,
   ) {
     const mailOptions = {
       from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
@@ -101,7 +100,7 @@ export class MailService {
         technicalName,
         fechaResolve,
         dias,
-        ratingToken
+        ratingToken,
       ),
     };
 
@@ -113,14 +112,14 @@ export class MailService {
     }
   }
 
-   async sendEmailOnProgressTicket(
+  async sendEmailOnProgressTicket(
     userCreatedReport: string,
     id: number,
     email: string,
     fecha: string,
     ubicacion: string,
     falla: string,
-    technicalName: string
+    technicalName: string,
   ) {
     const mailOptions = {
       from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
@@ -144,15 +143,14 @@ export class MailService {
     }
   }
 
-
-   async sendEmailTechnicalAssignReport(
+  async sendEmailTechnicalAssignReport(
     userCreatedReport: string,
     id: number,
     email: string,
     fecha: string,
     ubicacion: string,
     falla: string,
-    technicalName: string
+    technicalName: string,
   ) {
     const mailOptions = {
       from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
@@ -176,25 +174,44 @@ export class MailService {
     }
   }
 
+  async sendPageServiceToEmail(
+    userCreatedReport: string,
+    id: number,
+    emailTo: string, // destinatario principal
+    fecha: string,
+    ubicacion: string,
+    falla: string,
+    ccList: string[] = [], // destinatarios en copia
+  ) {
+    const mailOptions = {
+      from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
+      to: emailTo,
+      cc: ccList.length > 0 ? ccList : undefined,
+      subject: `Ticket #${id}: ${falla}`,
+      html: HTML_CREATED_REPORT(userCreatedReport, id, fecha, ubicacion, falla),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Correo enviado a ${emailTo} con copia a: ${ccList}`);
+    } catch (error) {
+      console.error('Error al enviar el correo:', error);
+    }
+  }
+
   async sendEmailCreatedReport(
     userCreatedReport: string,
     id: number,
     email: string,
     fecha: string,
     ubicacion: string,
-    falla: string
+    falla: string,
   ) {
     const mailOptions = {
       from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Ticket #${id}: ${falla}`,
-      html: HTML_CREATED_REPORT(
-        userCreatedReport,
-        id,
-        fecha,
-        ubicacion,
-        falla,
-      ),
+      html: HTML_CREATED_REPORT(userCreatedReport, id, fecha, ubicacion, falla),
     };
 
     try {
@@ -204,7 +221,6 @@ export class MailService {
       console.error('Error al enviar el correo de alerta:', error);
     }
   }
-
 
   async sendProgressExecutive(progressExecutive: MailProgressExecutiveDto) {
     const mailOptions = {
@@ -230,6 +246,10 @@ export class MailService {
     }
   }
 
+  /**
+   * Fuction to send Alert about reminder of User
+   * @param alertReminder
+   */
   async sendAlertEmail(alertReminder: alertReminderDto) {
     const mailOptions = {
       from: `"CRM Propapel" <${process.env.MAIL_USER}>`,
@@ -253,55 +273,3 @@ export class MailService {
     }
   }
 }
-
-/*
-async sendAlertEmailTommorrow(alertReminder: alertReminderDto) {
-      const mailOptions = {
-        from: 'crm-propapel@propapel.com.mx',
-        to: alertReminder.email,
-        subject: 'Recordatorio de cita 🧍‍♂️🔔',
-        html: HTML_TEMPLATE_TOMORROW(alertReminder.client, alertReminder.date,alertReminder.time, alertReminder.direcction, alertReminder.user),
-      };
-
-      try {
-          await this.transporter.sendMail(mailOptions);
-          console.log(`Correo de alerta enviado a ${alertReminder.email}`);
-      } catch (error) {
-          console.error("Error al enviar el correo de alerta:", error);
-      }
-  }
-  async sendAlertEmailInOneHour(alertReminder: alertReminderDto) {
-    const mailOptions = {
-      from: 'crm-propapel@propapel.com.mx',
-      to: alertReminder.email,
-      subject: 'Recordatorio de cita 🧍‍♂️🔔',
-      html: HTML_TEMPLATE_IN_ONE_HOUR(alertReminder.client, alertReminder.date,alertReminder.time, alertReminder.direcction, alertReminder.user),
-    };
-
-    try {
-        await this.transporter.sendMail(mailOptions);
-        console.log(`Correo de alerta enviado a ${alertReminder.email}`);
-    } catch (error) {
-        console.error("Error al enviar el correo de alerta:", error);
-    }
-}
-async sendAlertEmail(alertReminder: alertReminderDto) {
-    const mailOptions = {
-        from: 'crm-propapel@propapel.com.mx',
-        to: alertReminder.email,
-        subject: '⚠️ Recordatorio de cita',
-        text: `Haz programado una cita con el cliente: ${alertReminder.client} a las ${alertReminder.time}\n\n` +
-              `--------------------------------------------\n` +
-              `ServiceDesk | Departamento de T.I. | Área de Soporte Técnico.\n` +
-              `© Royal Resorts 2021. All rights reserved.`
-    };
-
-    try {
-        await this.transporter.sendMail(mailOptions);
-        console.log(`Correo de alerta enviado a ${alertReminder.email}`);
-    } catch (error) {
-        console.error("Error al enviar el correo de alerta:", error);
-    }
-}
-
-*/

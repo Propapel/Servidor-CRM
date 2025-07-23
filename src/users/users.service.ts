@@ -19,7 +19,7 @@ export class UsersService {
     private sucusalesRepository: Repository<Sucursales>,
     @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
-
+  
   async fetchAllUserAppointments() {
     return await this.usersRepository
       .createQueryBuilder('user')
@@ -33,8 +33,9 @@ export class UsersService {
         'user.wallet AS Cartera',
         'customer.company_name AS RazonSocial',
         'reminder.typeAppointment AS TipoDeCita',
+        'IF(reminder.is_completed, "Sí", "No") AS Cumplio',
         'FROM_UNIXTIME(reminder.reminder_date / 1000, "%h:%i %p") AS Hora',
-        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS Fecha'
+        'FROM_UNIXTIME(reminder.reminder_date / 1000, "%d-%m-%Y") AS Fecha',
       ])
       .where('reminder.reminder_date IS NOT NULL')
       .andWhere(

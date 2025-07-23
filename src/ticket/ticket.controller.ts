@@ -27,6 +27,17 @@ import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  @Get('checkStatus/:id')
+  checkStatusTicket(@Param('id', ParseIntPipe) id: number){
+    return this.ticketService.checkStatusTicket(id)
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post('sendPageService/:id')
+  sendPageService(@Param('id', ParseIntPipe) id: number){
+    return this.ticketService.sendPageService(id)
+  }
+
   /**
    * Function to find all tickets assigned to a specific technical
    *

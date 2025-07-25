@@ -18,6 +18,8 @@ import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
+import ERROR_FOUND_TICKET from './web/error_found_ticket';
+import ERROR_TICKET_QUALIFIED from './web/error_ticket_qualified';
 @Injectable()
 export class TicketService {
   constructor(
@@ -78,6 +80,7 @@ export class TicketService {
     // 4. Crear ticket
     const ticket = this.ticketRepository.create({
       createdBy: user,
+      statusToken: uuidv4(),
       nameReported: createTicketDto.nameReported,
       apartamentReport: createTicketDto.apartamentReport,
       reasonReport: createTicketDto.reasonReport,
@@ -109,15 +112,16 @@ export class TicketService {
       savedTicket.location,
       savedTicket.reasonReport,
     );
-
-    if (savedTicket.nameReported.trim() !== '') {
-      await this.mailService.sendEmailCreatedReport(
+    if (
+      savedTicket.nameReported.trim() !== '' &&
+      savedTicket.emailReport.trim() !== ''
+    ) {
+      await this.mailService.sendEmailToClientStatusTicket(
         savedTicket.nameReported,
-        savedTicket.id,
         savedTicket.emailReport,
+        savedTicket.id,
         savedTicket.createdAt.toLocaleDateString(),
-        savedTicket.location,
-        savedTicket.reasonReport,
+        savedTicket.statusToken,
       );
     }
 
@@ -324,8 +328,7 @@ export class TicketService {
 
     await this.ticketUpdateRepository.save(updateReport);
 
-    // Calcular días de resolución
-    // Calcular días de resolución
+    // Calcular tiempo total de resolución (días, horas, minutos, segundos)
     const fechaSolicitud = new Date(ticket.createdAt);
     const fechaResolucion = new Date(ticket.resolvedAt);
     const dias = Math.ceil(
@@ -335,9 +338,9 @@ export class TicketService {
 
     // Enviar correo
     await this.mailService.closeTicketEmail(
-      ticket.createdBy.name,
+      ticket.nameReported,
       ticket.id,
-      ticket.createdBy.email,
+      ticket.emailReport,
       fechaSolicitud.toLocaleDateString(),
       ticket.location,
       ticket.reasonReport,
@@ -354,160 +357,439 @@ export class TicketService {
     });
 
     if (!ticket) {
-      return '<h2 style="text-align:center;color:red;margin-top:3rem;">Token inválido o calificación no disponible.</h2>';
+      return ERROR_FOUND_TICKET;
     }
 
     if (ticket.serviceRating != null) {
-      return '<h2 style="text-align:center;color:orange;margin-top:3rem;">Este ticket ya ha sido calificado.</h2>';
+      return ERROR_TICKET_QUALIFIED;
     }
 
     const id = ticket.id; // para insertar en el JavaScript
     return `
 <!DOCTYPE html>
-<html lang="es">
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>Califica el Servicio - Propapel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    body {
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f4;
-    }
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]>
+<xml><w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"><w:DontUseAdvancedTypographyReadingMail/></w:WordDocument>
+<o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml>
+<![endif]--><!--[if !mso]><!--><!--<![endif]-->
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
 
-    .container {
-      max-width: 500px;
-      margin: 40px auto;
-      background-color: white;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
 
-    h2 {
-      color: #0d47a1;
-      text-align: center;
-    }
+        h2 {
+            color: #0d47a1;
+            text-align: center;
+        }
 
-    .stars {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin: 20px 0;
-    }
+        .stars {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
 
-    .star {
-      font-size: 30px;
-      cursor: pointer;
-      color: #ccc;
-    }
+        .star {
+            font-size: 30px;
+            cursor: pointer;
+            color: #ccc;
+        }
 
-    .star.selected {
-      color: #ffb400;
-    }
+        .star.selected {
+            color: #ffb400;
+        }
 
-    textarea {
-      width: 100%;
-      height: 100px;
-      resize: none;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-family: inherit;
-      margin-top: 15px;
-    }
+        textarea {
+            width: 100%;
+            height: 100px;
+            resize: none;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-family: inherit;
+            margin-top: 15px;
+        }
 
-    button {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      background-color: #0d47a1;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      margin-top: 20px;
-      cursor: pointer;
-    }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #0d47a1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
 
-    button:hover {
-      background-color: #1565c0;
-    }
+        button:hover {
+            background-color: #1565c0;
+        }
 
-    .confirmation {
-      text-align: center;
-      font-size: 16px;
-      color: green;
-      margin-top: 20px;
-    }
+        .confirmation {
+            text-align: center;
+            font-size: 16px;
+            color: green;
+            margin-top: 20px;
+        }
 
-    .disabled {
-      pointer-events: none;
-      opacity: 0.5;
-    }
-  </style>
+        .disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        a[x-apple-data-detectors] {
+            color: inherit !important;
+            text-decoration: inherit !important;
+        }
+
+        #MessageViewBody a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        p {
+            line-height: inherit
+        }
+
+        .desktop_hide,
+        .desktop_hide table {
+            mso-hide: all;
+            display: none;
+            max-height: 0px;
+            overflow: hidden;
+        }
+
+        .image_block img+div {
+            display: none;
+        }
+
+        sup,
+        sub {
+            font-size: 75%;
+            line-height: 0;
+        }
+
+        @media (max-width:670px) {
+            .mobile_hide {
+                display: none;
+            }
+
+            .row-content {
+                width: 100% !important;
+            }
+
+            .stack .column {
+                width: 100%;
+                display: block;
+            }
+
+            .mobile_hide {
+                min-height: 0;
+                max-height: 0;
+                max-width: 0;
+                overflow: hidden;
+                font-size: 0px;
+            }
+
+            .desktop_hide,
+            .desktop_hide table {
+                display: table !important;
+                max-height: none !important;
+            }
+        }
+    </style><!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
 </head>
-<body>
-  <div class="container" id="formContainer">
-    <h2>Califica el servicio recibido</h2>
 
-    <form id="ratingForm">
-      <div class="stars" id="starContainer">
-        <span class="star" data-value="1">&#9733;</span>
-        <span class="star" data-value="2">&#9733;</span>
-        <span class="star" data-value="3">&#9733;</span>
-        <span class="star" data-value="4">&#9733;</span>
-        <span class="star" data-value="5">&#9733;</span>
-      </div>
+<body class="body" style="background-color: #3d1554; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
+    <table class="nl-container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #3d1554;">
+        <tbody>
+            <tr>
+                <td>
+                    <table class="row row-1" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <div class="spacer_block block-1" style="height:20px;line-height:20px;font-size:1px;">&#8202;</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-2" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="33.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top;">
+                                                    <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+                                                                <div class="alignment" align="center">
+                                                                    <div style="max-width: 151.667px;"><a href="http://www.example.com/" target="_blank"><img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/i6a/nv1/gin/Propapel-logo%20%281%29.png" style="display: block; height: auto; border: 0; width: 100%;" width="151.667" alt="Logo" title="Logo" height="auto"></a></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td class="column column-2" width="66.66666666666667%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <table class="empty_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-3" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <div class="spacer_block block-1" style="height:20px;line-height:20px;font-size:1px;">&#8202;</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #0017a0;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; border-left: 4px solid transparent; border-right: 4px solid transparent; padding-bottom: 60px; padding-top: 55px; vertical-align: top;">
 
-      <textarea placeholder="Escribe tus comentarios (opcional)..." name="comment" id="comment"></textarea>
-      <input type="hidden" name="rating" id="ratingValue" value="0"/>
-      <button type="submit">Enviar calificación</button>
-    </form>
+                                                    <div class="container" id="formContainer">
+                                                        <h2>Califica el servicio recibido</h2>
 
-    <div id="confirmationMessage" class="confirmation" style="display: none;">
-      ¡Gracias! Tu calificación ha sido registrada. Puedes cerrar esta pestaña.
-    </div>
-  </div>
+                                                        <form id="ratingForm">
+                                                            <div class="stars" id="starContainer">
+                                                                <span class="star" data-value="1">&#9733;</span>
+                                                                <span class="star" data-value="2">&#9733;</span>
+                                                                <span class="star" data-value="3">&#9733;</span>
+                                                                <span class="star" data-value="4">&#9733;</span>
+                                                                <span class="star" data-value="5">&#9733;</span>
+                                                            </div>
 
-  <script>
-    const stars = document.querySelectorAll('.star');
-    const ratingValue = document.getElementById('ratingValue');
-    const form = document.getElementById('ratingForm');
-    const confirmationMessage = document.getElementById('confirmationMessage');
-    const commentInput = document.getElementById('comment');
+                                                            <textarea placeholder="Escribe tus comentarios (opcional)..." name="comment" id="comment"></textarea>
+                                                            <input type="hidden" name="rating" id="ratingValue" value="0" />
+                                                            <button type="submit">Enviar calificación</button>
+                                                        </form>
 
-    const ticketId = ${id}; // ← ID dinámico inyectado por TypeScript
+                                                        <div id="confirmationMessage" class="confirmation" style="display: none;">
+                                                            ¡Gracias! Tu calificación ha sido registrada. Puedes cerrar esta pestaña.
+                                                        </div>
+                                                    </div>
 
-    stars.forEach(star => {
-      star.addEventListener('click', () => {
-        const value = parseInt(star.getAttribute('data-value'));
-        ratingValue.value = value;
-        updateStars(value);
-      });
-    });
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-5" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #57366e; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="58.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #d38b00; padding-bottom: 55px; padding-left: 30px; padding-right: 30px; padding-top: 55px; vertical-align: middle;">
+                                                    <table class="text_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:20px;padding-left:25px;padding-right:25px;padding-top:10px;">
+                                                                <div style="font-family: sans-serif">
+                                                                    <div class style="font-size: 12px; font-family: 'Poppins', Arial, Helvetica, sans-serif; mso-line-height-alt: 18px; color: #ffffff; line-height: 1.5;">
+                                                                        <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 21px;">¿Sabías que también vendemos impresoras, consumibles y productos de oficina?<br>👉 Descubre todo lo que tenemos para ti.</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-2" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="https://www.propapel.mx/index.php?route=information/information&information_id=24" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/index.php?route=information/information&information_id=24"  style="height:57px;width:230px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: 'Poppins', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; Impresoras&nbsp;&nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-3" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="https://www.propapel.mx/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/"  style="height:57px;width:233px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: 'Poppins', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 35px; padding-right: 35px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; &nbsp; Otros productos&nbsp; &nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-4" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="http://www.example.com/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="http://www.example.com/"  style="height:57px;width:229px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: 'Poppins', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>Cookie Policy</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="paragraph_block block-5" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:10px;padding-left:25px;padding-right:25px;padding-top:20px;">
+                                                                <div style="color:#ffffff;font-family:'Poppins', Arial, Helvetica, sans-serif;font-size:16px;line-height:1.5;text-align:center;mso-line-height-alt:24px;">
+                                                                    <p style="margin: 0; word-break: break-word;">Si tienes alguna duda, no dudes en <a href="mailto:ventassai@propapel.com.mx" target="_blank" title="ventassai@propapel.com.mx" style="text-decoration: underline; color: #ffffff;" rel="noopener">contactarnos</a>. Estamos para ayudarte.</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td class="column column-2" width="41.666666666666664%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #d38b00; padding-bottom: 5px; padding-top: 5px; vertical-align: middle;">
+                                                    <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+                                                                <div class="alignment" align="center">
+                                                                    <div style="max-width: 270.833px;"><img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" style="display: block; height: auto; border: 0; width: 100%;" width="270.833" alt title height="auto"></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-6" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #0017a0;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top;">
+                                                    <table class="paragraph_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:20px;padding-left:10px;padding-right:10px;padding-top:15px;">
+                                                                <div style="color:#b0a7b7;font-family:'Poppins', Arial, Helvetica, sans-serif;font-size:12px;line-height:1.5;text-align:center;mso-line-height-alt:18px;">
+                                                                    <p style="margin: 0;">ServiceDesk | Departamento de SAI | Área de Soporte Técnico. <br>© Propapel 2025. Todos los derechos reservados.</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table><!-- End -->
+    <script>
+        const stars = document.querySelectorAll('.star');
+        const ratingValue = document.getElementById('ratingValue');
+        const form = document.getElementById('ratingForm');
+        const confirmationMessage = document.getElementById('confirmationMessage');
+        const commentInput = document.getElementById('comment');
 
-    function updateStars(value) {
-      stars.forEach(star => {
-        const starValue = parseInt(star.getAttribute('data-value'));
-        star.classList.toggle('selected', starValue <= value);
-      });
-    }
+        const ticketId = ${id}; // ← ID dinámico inyectado por TypeScript
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const value = parseInt(star.getAttribute('data-value'));
+                ratingValue.value = value;
+                updateStars(value);
+            });
+        });
 
-      const rating = parseInt(ratingValue.value);
-      const comment = commentInput.value.trim();
+        function updateStars(value) {
+            stars.forEach(star => {
+                const starValue = parseInt(star.getAttribute('data-value'));
+                star.classList.toggle('selected', starValue <= value);
+            });
+        }
 
-      if (rating === 0) {
-        alert('Por favor, selecciona una calificación antes de enviar.');
-        return;
-      }
+        form.addEventListener('submit', function(e) {
+                    e.preventDefault();
 
-      fetch(\`/ticket/rate/\${ticketId}\`, {
+                    const rating = parseInt(ratingValue.value);
+                    const comment = commentInput.value.trim();
+
+                    if (rating === 0) {
+                        alert('Por favor, selecciona una calificación antes de enviar.');
+                        return;
+                    }
+
+                    fetch(\`/ticket/rate/\${ticketId}\`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -537,8 +819,9 @@ export class TicketService {
         })
         .catch(err => alert(err.message));
     });
-  </script>
+    </script>
 </body>
+
 </html>
 `;
   }
@@ -722,14 +1005,14 @@ export class TicketService {
       throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
     }
   }
-  async checkStatusTicket(id: number) {
+  async checkStatusTicket(id: string) {
     const ticket = await this.ticketRepository.findOne({
-      where: { id },
+      where: { statusToken: id },
       relations: ['cliente'],
     });
 
     if (!ticket) {
-      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+      return ERROR_FOUND_TICKET;
     }
 
     const steps = this.getProgressSteps(ticket.status);
@@ -765,178 +1048,449 @@ export class TicketService {
 
     return `
   <!DOCTYPE html>
-  <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Seguimiento de Ticket</title>
-        <!--====== Favicon Icon ======-->
-    <link rel="shortcut icon" href="https://1.bp.blogspot.com/-rK4-Xp5tY_U/X_4ZjWc4cqI/AAAAAAAABbQ/HYMo-KaYvOwAUV0ZD0ORfD6NOrF-KRr0wCLcBGAsYHQ/s1431/Propapel-logo.png" type="image/png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]>
+<xml><w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"><w:DontUseAdvancedTypographyReadingMail/></w:WordDocument>
+<o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml>
+<![endif]--><!--[if !mso]><!--><!--<![endif]-->
     <style>
-     * {
-  box-sizing: border-box;
-}
+        * {
+            box-sizing: border-box;
+        }
 
-body {
-  font-family: Arial, sans-serif;
-  background-color: #3131f0ff;
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #3131f0ff;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-.container {
-  max-width: 700px;
-  width: 100%;
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.08);
-  text-align: center;
-}
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
 
-.header-image {
-  margin-bottom: 20px;
-  text-align: center;
-}
+        .header-image {
+            margin-bottom: 20px;
+            text-align: center;
+        }
 
-.header-image img {
-  max-width: 150px;
-  margin: 0 auto;
-}
+        .header-image img {
+            max-width: 150px;
+            margin: 0 auto;
+        }
 
-h2 {
-  color: #4B0082;
-  margin-bottom: 20px;
-}
+        h2 {
+            color: #4B0082;
+            margin-bottom: 20px;
+        }
 
-p {
-  font-size: 15px;
-  margin: 6px 0;
-}
+        p {
+            font-size: 15px;
+            margin: 6px 0;
+        }
 
-.progress-container {
-  display: flex;
-  justify-content: space-between;
-  position: relative;
-  margin: 30px 0;
-}
+        .progress-container {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 30px 0;
+        }
 
-.progress-container::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  height: 4px;
-  width: 100%;
-  background: #ddd;
-  z-index: 0;
-  transform: translateY(-50%);
-}
+        .progress-container::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            width: 100%;
+            background: #ddd;
+            z-index: 0;
+            transform: translateY(-50%);
+        }
 
-.step {
-  position: relative;
-  text-align: center;
-  z-index: 1;
-  flex: 1;
-}
+        .step {
+            position: relative;
+            text-align: center;
+            z-index: 1;
+            flex: 1;
+        }
 
-.circle {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #ddd;
-  margin: 0 auto;
-  line-height: 30px;
-  color: #fff;
-  font-weight: bold;
-}
+        .circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ddd;
+            margin: 0 auto;
+            line-height: 30px;
+            color: #fff;
+            font-weight: bold;
+        }
 
-.step p {
-  margin-top: 8px;
-  font-size: 14px;
-  color: #999;
-  font-weight: normal;
-}
+        .step p {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #999;
+            font-weight: normal;
+        }
 
-.step.done .circle {
-  background: #00C853;
-}
+        .step.done .circle {
+            background: #00C853;
+        }
 
-.step.active .circle {
-  background: #4B0082;
-}
+        .step.active .circle {
+            background: #4B0082;
+        }
 
-.step.done p,
-.step.active p {
-  color: #4B0082;
-  font-weight: bold;
-}
+        .step.done p,
+        .step.active p {
+            color: #4B0082;
+            font-weight: bold;
+        }
 
-.whatsapp-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background-color: #25D366;
-  color: white;
-  padding: 12px 18px;
-  border-radius: 50px;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 14px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-  z-index: 999;
-  transition: background 0.3s;
-}
+        .whatsapp-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #25D366;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 999;
+            transition: background 0.3s;
+        }
 
-.whatsapp-button:hover {
-  background-color: #1ebd5a;
-}
+        .whatsapp-button:hover {
+            background-color: #1ebd5a;
+        }
 
-    </style>
-  </head>
-  <body>
-    <div class="container">
+        a[x-apple-data-detectors] {
+            color: inherit !important;
+            text-decoration: inherit !important;
+        }
 
-      <h2>Seguimiento de tu Ticket</h2>
+        #MessageViewBody a {
+            color: inherit;
+            text-decoration: none;
+        }
 
-      <p><strong>Número de Ticket:</strong> #${ticket.id}</p>
-      <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
-      <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
-      ${resolveDate}
-      ${timeResolution}
+        p {
+            line-height: inherit
+        }
 
-      <div class="progress-container">
-        <div class="step ${steps.creado}">
-          <div class="circle">1</div><p>Creado</p>
-        </div>
-        <div class="step ${steps.asignado}">
-          <div class="circle">2</div><p>Asignado</p>
-        </div>
-        <div class="step ${steps.enProceso}">
-          <div class="circle">3</div><p>En Proceso</p>
-        </div>
-        <div class="step ${steps.resuelto}">
-          <div class="circle">4</div><p>Resuelto</p>
-        </div>
-      </div>
-<div class="header-image">
-        <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" alt="Soporte">
-      </div>
-      ${resolvedMessage}
-      
-    </div>
+        .desktop_hide,
+        .desktop_hide table {
+            mso-hide: all;
+            display: none;
+            max-height: 0px;
+            overflow: hidden;
+        }
 
-    
+        .image_block img+div {
+            display: none;
+        }
 
-    <a href="https://wa.me/5219995769245?text=Hola,%20necesito%20ayuda%20con%20mi%20ticket%20%23${ticket.id}" target="_blank" class="whatsapp-button">
-      💬 Contactar por WhatsApp
-    </a>
-  </body>
-  </html>
+        sup,
+        sub {
+            font-size: 75%;
+            line-height: 0;
+        }
+
+        @media (max-width:670px) {
+            .mobile_hide {
+                display: none;
+            }
+
+            .row-content {
+                width: 100% !important;
+            }
+
+            .stack .column {
+                width: 100%;
+                display: block;
+            }
+
+            .mobile_hide {
+                min-height: 0;
+                max-height: 0;
+                max-width: 0;
+                overflow: hidden;
+                font-size: 0px;
+            }
+
+            .desktop_hide,
+            .desktop_hide table {
+                display: table !important;
+                max-height: none !important;
+            }
+        }
+    </style><!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
+</head>
+
+<body class="body" style="background-color: #3d1554; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
+    <table class="nl-container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #3d1554;">
+        <tbody>
+            <tr>
+                <td>
+                    <table class="row row-1" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <div class="spacer_block block-1" style="height:20px;line-height:20px;font-size:1px;">&#8202;</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-2" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="33.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top;">
+                                                    <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+                                                                <div class="alignment" align="center">
+                                                                    <div style="max-width: 151.667px;"><a href="http://www.example.com/" target="_blank"><img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/i6a/nv1/gin/Propapel-logo%20%281%29.png" style="display: block; height: auto; border: 0; width: 100%;" width="151.667" alt="Logo" title="Logo" height="auto"></a></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td class="column column-2" width="66.66666666666667%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <table class="empty_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-3" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; padding-bottom: 5px; padding-top: 5px; vertical-align: top;">
+                                                    <div class="spacer_block block-1" style="height:20px;line-height:20px;font-size:1px;">&#8202;</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #0017a0;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; border-left: 4px solid transparent; border-right: 4px solid transparent; padding-bottom: 60px; padding-top: 55px; vertical-align: top;">
+                                                    <div class="container">
+
+                                                        <h2>Seguimiento de tu Ticket</h2>
+
+                                                        <p><strong>Número de Ticket:</strong> #${ticket.id}</p>
+                                                        <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
+                                                        <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
+                                                        ${resolveDate}
+                                                        ${timeResolution}
+
+                                                        <div class="progress-container">
+                                                            <div class="step ${steps.creado}">
+                                                                <div class="circle">1</div>
+                                                                <p>Creado</p>
+                                                            </div>
+                                                            <div class="step ${steps.asignado}">
+                                                                <div class="circle">2</div>
+                                                                <p>Asignado</p>
+                                                            </div>
+                                                            <div class="step ${steps.enProceso}">
+                                                                <div class="circle">3</div>
+                                                                <p>En Proceso</p>
+                                                            </div>
+                                                            <div class="step ${steps.resuelto}">
+                                                                <div class="circle">4</div>
+                                                                <p>Resuelto</p>
+                                                            </div>
+                                                        </div>
+                                                        <div class="header-image">
+                                                            <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" alt="Soporte">
+                                                        </div>
+                                                        ${resolvedMessage}
+
+                                                    </div>
+
+
+
+                                                    <a href="https://wa.me/5219995769245?text=Hola,%20necesito%20ayuda%20con%20mi%20ticket%20%23${ticket.id}" target="_blank" class="whatsapp-button">
+                                                        💬 Contactar por WhatsApp
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-5" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #d38b00;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #57366e; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="58.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #d38b00; padding-bottom: 55px; padding-left: 30px; padding-right: 30px; padding-top: 55px; vertical-align: middle;">
+                                                    <table class="text_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:20px;padding-left:25px;padding-right:25px;padding-top:10px;">
+                                                                <div style="font-family: sans-serif">
+                                                                    <div class style="font-size: 12px; font-family: Poppins, Arial, Helvetica, sans-serif; mso-line-height-alt: 18px; color: #ffffff; line-height: 1.5;">
+                                                                        <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 21px;">¿Sabías que también vendemos impresoras, consumibles y productos de oficina?<br>👉 Descubre todo lo que tenemos para ti.</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-2" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="https://www.propapel.mx/index.php?route=information/information&information_id=24" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/index.php?route=information/information&information_id=24"  style="height:57px;width:230px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; Impresoras&nbsp;&nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-3" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="https://www.propapel.mx/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/"  style="height:57px;width:233px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 35px; padding-right: 35px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; &nbsp; Otros productos&nbsp; &nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="button_block block-4" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div class="alignment" align="center"><a href="http://www.example.com/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="http://www.example.com/"  style="height:57px;width:229px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
+<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
+<w:anchorlock/>
+<v:textbox inset="0px,0px,0px,0px">
+<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
+<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>Cookie Policy</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="paragraph_block block-5" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:10px;padding-left:25px;padding-right:25px;padding-top:20px;">
+                                                                <div style="color:#ffffff;font-family:Poppins, Arial, Helvetica, sans-serif;font-size:16px;line-height:1.5;text-align:center;mso-line-height-alt:24px;">
+                                                                    <p style="margin: 0; word-break: break-word;">Si tienes alguna duda, no dudes en <a href="mailto:ventassai@propapel.com.mx" target="_blank" title="ventassai@propapel.com.mx" style="text-decoration: underline; color: #ffffff;" rel="noopener">contactarnos</a>. Estamos para ayudarte.</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td class="column column-2" width="41.666666666666664%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #d38b00; padding-bottom: 5px; padding-top: 5px; vertical-align: middle;">
+                                                    <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+                                                                <div class="alignment" align="center">
+                                                                    <div style="max-width: 270.833px;"><img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" style="display: block; height: auto; border: 0; width: 100%;" width="270.833" alt title height="auto"></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="row row-6" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #0017a0;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top;">
+                                                    <table class="paragraph_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:20px;padding-left:10px;padding-right:10px;padding-top:15px;">
+                                                                <div style="color:#b0a7b7;font-family:Poppins, Arial, Helvetica, sans-serif;font-size:12px;line-height:1.5;text-align:center;mso-line-height-alt:18px;">
+                                                                    <p style="margin: 0;">ServiceDesk | Departamento de SAI | Área de Soporte Técnico. <br>© Propapel 2025. Todos los derechos reservados.</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table><!-- End -->
+</body>
+
+</html>
   `;
   }
 

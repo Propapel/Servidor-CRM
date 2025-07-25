@@ -13,6 +13,9 @@ export class Itequipment {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({nullable: true})
+  password?: string;
+  
   @Column()
   modelo: string;
 

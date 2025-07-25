@@ -12,6 +12,7 @@ import HTML_CREATED_REPORT from './mail_body_created_report';
 import HTML_TECHNICAL_ASSING_REPORT from './mail_body_assigned_technical';
 import HTML_TECHNICAL_CLOSE_TICKET from './mail_body_close_ticket';
 import HTML_TECHNICAL_ON_PROGRESS_TICKET from './mail_body_on_progress._ticket';
+import HTML_TICKET_CREATED_ALERT_TO_CLIENT from './mail_body_email_created_ticket_to_client';
 
 @Injectable()
 export class MailService {
@@ -173,6 +174,34 @@ export class MailService {
       console.error('Error al enviar el correo de alerta:', error);
     }
   }
+
+  async sendEmailToClientStatusTicket(
+    nameClient: string,
+    emailClient: string,
+    ticketId: number,
+    dateCreated: string,
+    tocketStatus : string
+  ) {
+    const mailOptions = {
+      from: `"HELP DESK Propapel" <${process.env.MAIL_USER}>`,
+      to: emailClient,
+      subject: `Seguimiento de Ticket #${ticketId}`,
+      html: HTML_TICKET_CREATED_ALERT_TO_CLIENT(
+       nameClient,
+       ticketId,
+       dateCreated,
+       tocketStatus
+      ),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Correo de estatus mandado a cliente a ${emailClient}`);
+    } catch (error) {
+      console.error('Error al enviar el correo de estatus del cliente:', error);
+    }
+  }
+
 
   async sendPageServiceToEmail(
     userCreatedReport: string,

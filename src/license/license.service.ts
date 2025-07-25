@@ -5,6 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from 'src/product/entities/product.entity';
 import { Repository } from 'typeorm';
 import { License } from './entities/license.entity';
+import { Client } from 'src/clients/entities/client.entity';
+import { AssignLicenceClientDto } from './dto/asign_licence_to_client.dto';
 
 @Injectable()
 export class LicenseService {
@@ -13,26 +15,64 @@ export class LicenseService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(License)
     private readonly licenseRepository: Repository<License>,
+    @InjectRepository(Client)
+    private readonly clienteRepository: Repository<Client>,
   ) {}
-
 
   async create(createLicenseDto: CreateLicenseDto) {
     const productFound = await this.productRepository.findOne({
       where: { id: createLicenseDto.productId },
-    })
+    });
 
     if (!productFound) {
-      throw new HttpException('License no encontrado', HttpStatus.NOT_FOUND);
+      throw new HttpException('Producto no encontrado', HttpStatus.NOT_FOUND);
     }
 
-    const lincenseFound = await this.licenseRepository.save({
+    const licenseCreated = await this.licenseRepository.save({
       key: createLicenseDto.key,
       expirationDate: createLicenseDto.expirationDate,
       available: createLicenseDto.available,
+      product: productFound, // Asociamos el producto a la licencia
     });
 
+    return licenseCreated;
+  }
 
-    return 'This action adds a new license';
+  async assignLicenceClient(asignLicenceClient: AssignLicenceClientDto ) {
+    const licenseFound = await this.licenseRepository.findOne({
+      where: { id: asignLicenceClient.licenceId },
+      relations: ['client'], // opcional si necesitas la relación actual
+    });
+
+    if (!licenseFound) {
+      throw new HttpException('Licencia no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    licenseFound.dateAssigment = new Date().toISOString() as unknown as Date;
+    licenseFound.available = false;
+    licenseFound.email = asignLicenceClient.email;
+    licenseFound.password = asignLicenceClient.password;
+    licenseFound.departamentAssign = asignLicenceClient.departamentAssign;
+
+    const clientFound = await this.clienteRepository.findOne({
+      where: { id: asignLicenceClient.clientId },
+    });
+
+    if (!clientFound) {
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+    }
+ 
+    // Asignamos el cliente a la licencia
+    (licenseFound as any).client = clientFound;
+
+    // Guardamos la licencia actualizada
+    await this.licenseRepository.save(licenseFound);
+
+    return {
+      message: 'Licencia asignada correctamente al cliente',
+      licenseId: licenseFound.id,
+      clientId: clientFound.id,
+    };
   }
 
   findAll() {

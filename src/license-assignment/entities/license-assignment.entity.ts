@@ -7,11 +7,8 @@ export class LicenseAssignment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Client, (client) => client.assignments)
-  client: Client;
-
-  @ManyToOne(() => License, (license) => license.assignments)
-  license: License;
+  @Column()
+  equipAssignment: string;
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   assignedAt: Date;

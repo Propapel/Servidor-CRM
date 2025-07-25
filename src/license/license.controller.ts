@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { LicenseService } from './license.service';
 import { CreateLicenseDto } from './dto/create-license.dto';
 import { UpdateLicenseDto } from './dto/update-license.dto';
+import { AssignLicenceClientDto } from './dto/asign_licence_to_client.dto';
 
 @Controller('license')
 export class LicenseController {
@@ -10,6 +11,11 @@ export class LicenseController {
   @Post()
   create(@Body() createLicenseDto: CreateLicenseDto) {
     return this.licenseService.create(createLicenseDto);
+  }
+
+  @Post('assignClientToLicense')
+  asignClientToLicense(@Body() assignLicenceClientDto: AssignLicenceClientDto){
+     return this.licenseService.assignLicenceClient(assignLicenceClientDto)
   }
 
   @Get()

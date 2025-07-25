@@ -7,10 +7,9 @@ import { Repository } from 'typeorm';
 
 @Injectable()
 export class ProductService {
-
   constructor(
     @InjectRepository(Product)
-        private readonly productRepository: Repository<Product>,
+    private readonly productRepository: Repository<Product>,
   ) {}
 
   async create(createProductDto: CreateProductDto) {
@@ -18,8 +17,18 @@ export class ProductService {
     return await this.productRepository.save(product);
   }
 
-  findAll() {
-    return `This action returns all product`;
+  async findAllByBranch(id: number) {
+    const productsFound = await this.productRepository.find({
+      where: {
+        branchId: id,
+      },
+      order: {
+        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
+      },
+      relations: ['licenses','licenses.client']
+    });
+
+    return productsFound;
   }
 
   findOne(id: number) {

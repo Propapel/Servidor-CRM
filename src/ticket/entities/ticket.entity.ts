@@ -115,6 +115,9 @@ export class Ticket {
   @Column({ nullable: true })
   ratingToken?: string;
 
+  @Column({ nullable: true})
+  statusToken?: string;
+
   @OneToMany(() => TicketComment, (comment) => comment.ticket, {
     cascade: true,
   })

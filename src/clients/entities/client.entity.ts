@@ -27,9 +27,6 @@ export class Client {
   @OneToMany(() => Ticket, (ticket) => ticket.cliente)
   tickets: Ticket[];
 
-   @OneToMany(() => LicenseAssignment, (assignment) => assignment.client)
-  assignments: LicenseAssignment[];
-
    @ManyToOne(() => User, (user) => user.clients, {
     nullable: true,
     onDelete: 'SET NULL', // Si se borra el usuario, no borra al cliente, solo pone null

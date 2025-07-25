@@ -28,7 +28,7 @@ export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
   @Get('checkStatus/:id')
-  checkStatusTicket(@Param('id', ParseIntPipe) id: number){
+  checkStatusTicket(@Param('id') id: string){
     return this.ticketService.checkStatusTicket(id)
   }
 

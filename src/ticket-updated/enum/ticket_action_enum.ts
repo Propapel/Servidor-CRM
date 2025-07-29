@@ -6,4 +6,5 @@ export enum TicketAction {
   REOPENED = 'REOPENED',
   CLOSED = 'CLOSED',
   COMMENT_ADDED = 'COMMENT_ADDED',
+  PAUSED = 'PAUSED'
 }

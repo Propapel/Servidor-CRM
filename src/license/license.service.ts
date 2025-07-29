@@ -30,7 +30,6 @@ export class LicenseService {
 
     const licenseCreated = await this.licenseRepository.save({
       key: createLicenseDto.key,
-      expirationDate: createLicenseDto.expirationDate,
       available: createLicenseDto.available,
       product: productFound, // Asociamos el producto a la licencia
     });
@@ -50,8 +49,10 @@ export class LicenseService {
 
     licenseFound.dateAssigment = new Date().toISOString() as unknown as Date;
     licenseFound.available = false;
+    licenseFound.expirationDate = asignLicenceClient.expirationDate;
     licenseFound.email = asignLicenceClient.email;
     licenseFound.password = asignLicenceClient.password;
+    licenseFound.codeSerie = asignLicenceClient.codeSerie;
     licenseFound.departamentAssign = asignLicenceClient.departamentAssign;
 
     const clientFound = await this.clienteRepository.findOne({

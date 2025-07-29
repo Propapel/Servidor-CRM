@@ -30,6 +30,13 @@ export class Ticket {
   @ManyToOne(() => Client, (cliente) => cliente.tickets)
   cliente: Client;
 
+  @Column(
+    {
+      nullable: true
+    }
+  )
+  nameCommercial: string;
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -65,6 +72,11 @@ export class Ticket {
 
   @Column({ nullable: true })
   serviceRating: number;
+
+  @Column({
+    default: false
+  })
+  isDelete: boolean;
 
   @Column({ nullable: true })
   serviceComment: string;
@@ -102,6 +114,9 @@ export class Ticket {
     default: TicketPriority.BAJA,
   })
   priority: TicketPriority;
+
+  @Column({ nullable: true })
+  reasonPause?: string;
 
   @Column({
     type: 'enum',

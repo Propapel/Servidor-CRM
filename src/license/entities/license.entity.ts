@@ -17,8 +17,19 @@ export class License {
   @Column()
   key: string;
 
-  @Column()
-  expirationDate: Date;
+  @Column(
+    {
+      nullable: true,
+    }
+  )
+  expirationDate?: Date;
+
+  @Column(
+    { 
+      nullable: true
+    }
+  )
+  codeSerie: string;
 
   @Column({
     nullable: true,

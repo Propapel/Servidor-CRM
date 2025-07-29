@@ -4,4 +4,6 @@ export class AssignLicenceClientDto{
     email: string;
     password: string;
     departamentAssign: string;
+    codeSerie: string;
+    expirationDate: Date;
 }

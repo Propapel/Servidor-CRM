@@ -6,6 +6,7 @@ import { TypeOfReport } from '../enum/kind_report';
 
 export class CreateTicketDto {
   userCreated?: number;
+  nameCommercial?: string;
   nameReported?: string;
   apartamentReport?: string;
   phoneReport?: string;

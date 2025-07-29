@@ -32,6 +32,11 @@ export class TicketController {
     return this.ticketService.checkStatusTicket(id)
   }
 
+  @Post('pausedTicket/:id')
+  pausedTicket(@Param('id', ParseIntPipe) id: number, @Body() body: { reasonPause: string }){
+    return this.ticketService.onPauseTicket(id, body.reasonPause)
+  }
+
   @UseGuards(AccessTokenGuard)
   @Post('sendPageService/:id')
   sendPageService(@Param('id', ParseIntPipe) id: number){
@@ -246,6 +251,6 @@ export class TicketController {
   @UseGuards(AccessTokenGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.ticketService.remove(+id);
+    return this.ticketService.deleteTicket(+id);
   }
 }

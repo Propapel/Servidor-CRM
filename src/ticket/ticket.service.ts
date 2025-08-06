@@ -271,6 +271,7 @@ export class TicketService {
       ticket: updatedTicket,
     });
 
+    /*
     await this.mailService.sendEmailOnProgressTicket(
       ticket.createdBy.name,
       ticket.id,
@@ -279,7 +280,7 @@ export class TicketService {
       ticket.location,
       ticket.reasonReport,
       ticket.assigmentsTechnical.map((tech) => tech.name).join(', '),
-    );
+    );*/
 
     await this.ticketUpdateRepository.save(updateReport);
   }
@@ -305,14 +306,14 @@ export class TicketService {
     }
 
     ticket.assigmentsTechnical = technicians;
-    ticket.attentionType = assigmentsTechnical.ticketAttentionType;
-    ticket.status = TicketStatus.ASIGNADO;
+    ticket.status = assigmentsTechnical.statusTicket;
     const updatedTicket = await this.ticketRepository.save(ticket);
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.ASSIGNED,
       ticket: updatedTicket,
     });
+/*
 
     await this.mailService.sendEmailTechnicalAssignReport(
       ticket.createdBy.name,
@@ -323,7 +324,7 @@ export class TicketService {
       ticket.reasonReport,
       technicians.map((tech) => tech.name).join(', '),
     );
-
+*/
     await this.ticketUpdateRepository.save(updateReport);
   }
 

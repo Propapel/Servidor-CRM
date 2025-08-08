@@ -201,7 +201,7 @@ export class TicketService {
         createdBy: {
           id: id,
         },
-        isDelete: false
+        isDelete: false,
       },
       relations: [
         'createdBy',
@@ -285,6 +285,27 @@ export class TicketService {
     await this.ticketUpdateRepository.save(updateReport);
   }
 
+  async updateAssignTechnical(
+    ticketId: number,
+    assigmentsTechnical: AsignTechnicalDto,
+  ) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId },
+      relations: ['assigmentsTechnical', 'createdBy'],
+    });
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const technicians = await this.userRepository.find({
+      where: { id: In(assigmentsTechnical.assigmentsTechnical) },
+    });
+
+    ticket.assigmentsTechnical = technicians;
+    ticket.status = assigmentsTechnical.statusTicket;
+    await this.ticketRepository.save(ticket);
+  }
+
   async asigngTicketToTechnical(
     ticketId: number,
     assigmentsTechnical: AsignTechnicalDto,
@@ -313,7 +334,7 @@ export class TicketService {
       action: TicketAction.ASSIGNED,
       ticket: updatedTicket,
     });
-/*
+    /*
 
     await this.mailService.sendEmailTechnicalAssignReport(
       ticket.createdBy.name,
@@ -348,7 +369,7 @@ export class TicketService {
     await this.ticketUpdateRepository.save(updateReport);
   }
 
-  async closeTicket(ticketId: number) {
+  async updateStatus(ticketId: number, statusTicket: TicketStatus) {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
       relations: ['createdBy', 'assigmentsTechnical'],
@@ -356,6 +377,46 @@ export class TicketService {
     if (!ticket) {
       throw new Error('Ticket not found');
     }
+
+    ticket.status = statusTicket;
+
+    await this.ticketRepository.save(ticket);
+  }
+
+  async closeTicket(ticketId: number, closeTicketDto: CloseTicketDto) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId },
+      relations: ['createdBy', 'assigmentsTechnical'],
+    });
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    if (
+      closeTicketDto.imagePageService &&
+      closeTicketDto.imagePageService.trim() !== ''
+    ) {
+      const buffer = Buffer.from(closeTicketDto.imagePageService, 'base64');
+      const pathPdf = `image_service_Ticket${ticketId}_${Date.now()}`;
+      const imageResult = await storage(buffer, pathPdf, 'image/png');
+
+      if (imageResult) {
+        ticket.imagePageService = imageResult; // Guarda la URL de la imagen
+      }
+    }
+    if (
+      closeTicketDto.pdfPageService &&
+      closeTicketDto.pdfPageService.trim() !== ''
+    ) {
+      const buffer = Buffer.from(closeTicketDto.pdfPageService, 'base64');
+      const pathPdf = `pdf_service_Ticket${ticketId}_${Date.now()}`;
+      const pdfUrl = await storage(buffer, pathPdf, 'application/pdf');
+
+      if (pdfUrl) {
+        ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
+      }
+    }
+
     ticket.ratingToken = uuidv4();
     ticket.resolved = true;
     ticket.resolvedAt = new Date().toISOString() as unknown as Date;
@@ -971,7 +1032,7 @@ export class TicketService {
     if (!ticketFound) {
       throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
     }
-    ticketFound.nameCommercial = updateTicketDto.nameCommercial
+    ticketFound.nameCommercial = updateTicketDto.nameCommercial;
     ticketFound.nameReported = updateTicketDto.nameReported;
     ticketFound.apartamentReport = updateTicketDto.apartamentReport;
     ticketFound.phoneReport = updateTicketDto.phoneReport;
@@ -984,7 +1045,7 @@ export class TicketService {
 
   /**
    * Fuction to delete a ticket
-   * 
+   *
    * @param ticketId The ID to ticket delete
    */
 
@@ -1053,7 +1114,6 @@ export class TicketService {
     await this.ticketCommentRepository.save(comment);
   }
 
-
   async sendPageService(id: number) {
     const ticketFound = await this.ticketRepository.findOne({
       where: {
@@ -1085,39 +1145,39 @@ export class TicketService {
     const steps = this.getProgressSteps(ticket.status);
 
     const resolvedMessage =
-  ticket.status === TicketStatus.RESUELTO
-    ? `<div style="text-align: center; margin-top: 30px; padding: 15px; background: #E8F5E9; border-radius: 8px; color: #2E7D32; font-weight: bold;">
+      ticket.status === TicketStatus.RESUELTO
+        ? `<div style="text-align: center; margin-top: 30px; padding: 15px; background: #E8F5E9; border-radius: 8px; color: #2E7D32; font-weight: bold;">
         ✅ ¡El ticket ha sido resuelto exitosamente!
       </div>`
-    : '';
+        : '';
 
-const resolveDate =
-  ticket.status === TicketStatus.RESUELTO && ticket.resolvedAt
-    ? `<p><strong>Fecha de resolución:</strong> ${ticket.resolvedAt.toLocaleDateString()}</p>`
-    : '';
+    const resolveDate =
+      ticket.status === TicketStatus.RESUELTO && ticket.resolvedAt
+        ? `<p><strong>Fecha de resolución:</strong> ${ticket.resolvedAt.toLocaleDateString()}</p>`
+        : '';
 
-const technicalAssignment =
-  ticket.status === TicketStatus.ASIGNADO ||
-  ticket.status === TicketStatus.EN_PROCESO
-    ? `<p><strong>Técnico(s) asignado(s):</strong> ${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</p>`
-    : '';
+    const technicalAssignment =
+      ticket.status === TicketStatus.ASIGNADO ||
+      ticket.status === TicketStatus.EN_PROCESO
+        ? `<p><strong>Técnico(s) asignado(s):</strong> ${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</p>`
+        : '';
 
-const reportAttentInPlace =
-  ticket.status === TicketStatus.EN_PROCESO &&
-  ticket.attentionType == TicketAttentionType.EN_SITIO
-    ? `<p>El técnico se encuentra en camino para atender el reporte en sitio.</p>`
-    : '';
+    const reportAttentInPlace =
+      ticket.status === TicketStatus.EN_PROCESO &&
+      ticket.attentionType == TicketAttentionType.EN_SITIO
+        ? `<p>El técnico se encuentra en camino para atender el reporte en sitio.</p>`
+        : '';
 
-const reportAttentRemote =
-  ticket.status === TicketStatus.EN_PROCESO &&
-  ticket.attentionType == TicketAttentionType.REMOTA
-    ? `<p>El técnico está atendiendo su reporte de manera remota.</p>`
-    : '';
+    const reportAttentRemote =
+      ticket.status === TicketStatus.EN_PROCESO &&
+      ticket.attentionType == TicketAttentionType.REMOTA
+        ? `<p>El técnico está atendiendo su reporte de manera remota.</p>`
+        : '';
 
-const reportOnPause =
-  ticket.status === TicketStatus.EN_ESPERA
-    ? `<p>El ticket se encuentra actualmente en espera.</p>`
-    : '';
+    const reportOnPause =
+      ticket.status === TicketStatus.EN_ESPERA
+        ? `<p>El ticket se encuentra actualmente en espera.</p>`
+        : '';
 
     const fechaSolicitud = new Date(ticket.createdAt);
     const fechaResolucion = ticket.resolvedAt

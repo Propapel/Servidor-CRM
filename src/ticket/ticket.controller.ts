@@ -22,6 +22,7 @@ import { Response } from 'express';
 import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { User } from 'src/users/user.entity';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
+import { TicketStatus } from './enum/ticiket_report_status';
 
 @Controller('ticket')
 export class TicketController {
@@ -190,6 +191,16 @@ export class TicketController {
     return this.ticketService.asigngTicketToTechnical(+id, asignTechnicalDto);
   }
 
+  @UseGuards(AccessTokenGuard)
+  @Post('updateAssignTechnical/:id')
+  updateAssignTechnical(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() asignTechnicalDto: AsignTechnicalDto,
+  ) {
+    return this.ticketService.updateAssignTechnical(+id, asignTechnicalDto);
+  }
+
+
   /**
    * Function to close a ticket
    * 
@@ -200,9 +211,17 @@ export class TicketController {
   @UseGuards(AccessTokenGuard)
   @Post('close/:id')
   closeTicket(
-    @Param('id', ParseIntPipe) id: number
+    @Param('id', ParseIntPipe) id: number, @Body() closeTicketDto: CloseTicketDto
   ) {
-    return this.ticketService.closeTicket(+id);
+    return this.ticketService.closeTicket(+id, closeTicketDto);
+  }
+
+
+  @Put('updateStatus/:id')
+  updateStatusTicket(
+    @Param('id', ParseIntPipe) id: number,  @Body() body: { status: TicketStatus },
+  ){
+      return this.ticketService.updateStatus(id, body.status)
   }
 
   /**

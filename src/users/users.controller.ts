@@ -332,6 +332,12 @@ export class UsersController {
     return this.usersService.findBYAllUsers();
   }
 
+
+  @Get('getCustomerCountsBySucursalAndMonth')
+  getCustomerCountsBySucursalAndMonth() {
+    return this.usersService.getCustomerCountsBySucursalAndMonth();
+  }
+
   @UseGuards(AccessTokenGuard)
   @Get('findByUserAllUsersBranches')
   findByAllUsersByBranch() {

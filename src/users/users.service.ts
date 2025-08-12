@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { compare } from 'bcrypt';
@@ -19,7 +19,7 @@ export class UsersService {
     private sucusalesRepository: Repository<Sucursales>,
     @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
-  
+
   async fetchAllUserAppointments() {
     return await this.usersRepository
       .createQueryBuilder('user')
@@ -497,6 +497,90 @@ export class UsersService {
     return { users };
   }
 
+  async getCustomerCountsBySucursalAndMonth(): Promise<
+    Record<string, Array<{ year: number; month: number; count: number }>>
+  > {
+    const emailFilters = ['%@propapel.com.mx', '%@optivosa.com'];
+    const sucursalesTarget = [
+      'Propapel Merida',
+      'Propapel Monterrey',
+      'Propapel Mexico',
+    ];
+
+    // Query: contar customers agrupados por sucursal, año y mes
+    const rawCounts: CustomerCountByMonth[] = await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.sucursales', 'sucursal')
+      .leftJoin('user.customers', 'customer')
+      .select([
+        'sucursal.nombre as sucursalNombre',
+        'EXTRACT(YEAR FROM customer.created_at) as year',
+        'EXTRACT(MONTH FROM customer.created_at) as month',
+        'COUNT(customer.customer_id) as customerCount',
+      ])
+      .where(
+        new Brackets((qb) => {
+          emailFilters.forEach((email, idx) => {
+            if (idx === 0) {
+              qb.where('user.email LIKE :email0', { email0: email });
+            } else {
+              qb.orWhere(`user.email LIKE :email${idx}`, {
+                [`email${idx}`]: email,
+              });
+            }
+          });
+        }),
+      )
+      .andWhere('sucursal.nombre IN (:...sucursales)', {
+        sucursales: sucursalesTarget,
+      })
+      // Filtrar que mes esté entre 1 y 12 para evitar month=0
+      .andWhere('EXTRACT(MONTH FROM customer.created_at) BETWEEN 1 AND 12')
+      .groupBy('sucursal.nombre')
+      .addGroupBy('year')
+      .addGroupBy('month')
+      .getRawMany();
+
+    // Agrupar por sucursal con estructura simplificada
+    const result: Record<
+      string,
+      Array<{ year: number; month: number; count: number }>
+    > = {
+      merida: [],
+      monterrey: [],
+      mexico: [],
+    };
+
+    rawCounts.forEach((row) => {
+      const nombreLower = (row.sucursalNombre || '').toLowerCase();
+
+      const sucursalKey = nombreLower.includes('merida')
+        ? 'merida'
+        : nombreLower.includes('monterrey')
+          ? 'monterrey'
+          : nombreLower.includes('mexico')
+            ? 'mexico'
+            : null;
+
+      if (sucursalKey) {
+        const year = Number(row.year);
+        const month = Number(row.month);
+        const count = Number(row.customerCount);
+
+        // Validar mes y año antes de agregar
+        if (month >= 1 && month <= 12 && year > 0 && count >= 0) {
+          result[sucursalKey].push({
+            year,
+            month,
+            count,
+          });
+        }
+      }
+    });
+
+    return result;
+  }
+
   /**
    *
    * @returns
@@ -754,4 +838,12 @@ export class InfoTableDatesDto {
   saleExecutive: string;
   clave: string;
   totalDates: number;
+}
+
+interface CustomerCountByMonth {
+  userId: number;
+  sucursalNombre: string;
+  year: number;
+  month: number;
+  customerCount: number;
 }

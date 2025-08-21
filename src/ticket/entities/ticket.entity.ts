@@ -18,6 +18,7 @@ import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity
 import { Client } from 'src/clients/entities/client.entity';
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 import { TicketAttentionType } from '../enum/ticket_attention_type';
+import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 
 @Entity('ticket')
 export class Ticket {
@@ -27,14 +28,26 @@ export class Ticket {
   })
   equipo: Itequipment;
 
+  @ManyToOne(() => Sucursales, (sucursal) => sucursal.tickets, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  sucursal: Sucursales;
+
+  @Column()
+  ticketNumber: number; // consecutivo por sucursal
+
   @ManyToOne(() => Client, (cliente) => cliente.tickets)
   cliente: Client;
 
-  @Column(
-    {
-      nullable: true
-    }
-  )
+  @Column({
+    default: false
+  })
+  isForeign: boolean;
+
+  @Column({
+    nullable: true,
+  })
   nameCommercial: string;
 
   @PrimaryGeneratedColumn()
@@ -74,7 +87,7 @@ export class Ticket {
   serviceRating: number;
 
   @Column({
-    default: false
+    default: false,
   })
   isDelete: boolean;
 
@@ -130,7 +143,7 @@ export class Ticket {
   @Column({ nullable: true })
   ratingToken?: string;
 
-  @Column({ nullable: true})
+  @Column({ nullable: true })
   statusToken?: string;
 
   @OneToMany(() => TicketComment, (comment) => comment.ticket, {

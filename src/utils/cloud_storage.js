@@ -30,7 +30,7 @@ module.exports = (buffer, pathImage, contentType = 'image/png') => {
                             firebaseStorageDownloadTokens: uuid,
                         }
                     },
-                    resumable: false
+                    resumable: true
                 });
 
                 blobStream.on('error', (error) => {

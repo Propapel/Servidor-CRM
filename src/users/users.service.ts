@@ -20,6 +20,31 @@ export class UsersService {
     @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
 
+  async getUsersWithBranches() {
+  return await this.usersRepository
+    .createQueryBuilder('user')
+    .leftJoin('user.sucursales', 'sucursal')
+    .select([
+      'user.id AS id',
+      "CONCAT(user.name, ' ', user.lastname) AS Ejecutivo",
+      'user.email AS email',
+      'user.isDelete AS isDelete',
+      'user.puesto AS puesto',
+      'user.phone AS phone',
+      'user.image AS image',
+      'user.wallet AS wallet',
+      'user.created_at AS createdAt',
+      'user.updated_at AS updatedAt',
+      'sucursal.id AS branchId',
+      'sucursal.nombre AS branchName'
+    ])
+    .where(
+      `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`
+    )
+    .getRawMany(); // 🔹 Raw para poder usar aliases y CONCAT
+}
+
+
   async fetchAllUserAppointments() {
     return await this.usersRepository
       .createQueryBuilder('user')

@@ -49,9 +49,7 @@ export class TicketService {
 
     // 2. Buscar cliente
     const client = await this.clientRepository.findOne({
-      where: {
-        id: createTicketDto.clientId,
-      },
+      where: { id: createTicketDto.clientId },
       relations: ['user'],
     });
     if (!client)
@@ -65,23 +63,35 @@ export class TicketService {
       });
     }
 
-    const newListFiles = [];
+    // 4. Manejar ID por sucursal
+    let lastTicket = await this.ticketRepository.findOne({
+      where: { sucursal: { id: user.sucursales[0].id } },
+      order: { id: 'DESC' },
+    });
 
-    //Upload files
+    let ticketId: number;
+    if (!lastTicket) {
+      // Primera vez para esta sucursal
+      ticketId = 1;
+    } else {
+      ticketId = lastTicket.id + 1;
+    }
+
+    // 5. Procesar archivos
+    const newListFiles: string[] = [];
     if (createTicketDto.files && createTicketDto.files.length > 0) {
       for (let i = 0; i < createTicketDto.files.length; i++) {
         const attachment = createTicketDto.files[i];
         const buffer = Buffer.from(attachment, 'base64');
         const pathFile = `fileActivity${createTicketDto.clientId}_${Date.now()}`;
         const fileUrl = await storage(buffer, pathFile, 'image/png');
-        if (fileUrl) {
-          newListFiles.push(fileUrl);
-        }
+        if (fileUrl) newListFiles.push(fileUrl);
       }
     }
 
-    // 4. Crear ticket
+    // 6. Crear ticket con ID manual
     const ticket = this.ticketRepository.create({
+      id: ticketId,
       createdBy: user,
       statusToken: uuidv4(),
       nameCommercial: createTicketDto.nameCommercial,
@@ -90,6 +100,7 @@ export class TicketService {
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
+      sucursal: user.sucursales[0], // Asignar sucursal del usuario
       phoneReport: createTicketDto.phoneReport,
       emailReport: createTicketDto.emailReport,
       status: createTicketDto.status,
@@ -100,27 +111,14 @@ export class TicketService {
 
     const savedTicket = await this.ticketRepository.save(ticket);
 
-    // 5. Crear registro en historial
+    // 7. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.CREATED,
       ticket: savedTicket,
     });
-
     await this.ticketUpdateRepository.save(updateReport);
 
-    /*
-    if (client.user != null) {
-      await this.mailService.sendEmailCreatedReport(
-        client.user.name,
-        savedTicket.id,
-        client.user.email,
-        savedTicket.createdAt.toLocaleDateString(),
-        savedTicket.location,
-        savedTicket.reasonReport,
-      );
-    }
-    */
-
+    // 8. Enviar correos (opcional)
     await this.mailService.sendEmailCreatedReport(
       user.name,
       savedTicket.id,
@@ -129,10 +127,7 @@ export class TicketService {
       savedTicket.location,
       savedTicket.reasonReport,
     );
-    if (
-      savedTicket.nameReported.trim() !== '' &&
-      savedTicket.emailReport.trim() !== ''
-    ) {
+    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
       await this.mailService.sendEmailToClientStatusTicket(
         savedTicket.nameReported,
         savedTicket.emailReport,
@@ -142,23 +137,42 @@ export class TicketService {
       );
     }
 
-    // 6. Retornar ticket con relaciones
+    // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
       where: { id: savedTicket.id },
       relations: ['updates', 'createdBy', 'cliente', 'equipo'],
     });
   }
+
   findAll() {
     return `This action returns all ticket`;
+  }
+
+  async findAllTicketBranches() {
+    const tickets = await this.ticketRepository.find({
+      where: { isDelete: false },
+      relations: [
+        'createdBy',
+        'sucursal',
+        'createdBy.sucursales',
+        'assigmentsTechnical',
+        'updates',
+        'comments',
+        'comments.author',
+        'cliente',
+        'equipo',
+      ],
+      order: { createdAt: 'DESC' },
+    });
+
+    return tickets
   }
 
   findAllByBranch(branchId: number) {
     const tickets = this.ticketRepository.find({
       where: {
-        createdBy: {
-          sucursales: {
-            id: branchId,
-          },
+        sucursal: {
+          id: branchId,
         },
         isDelete: false,
       },
@@ -167,6 +181,7 @@ export class TicketService {
         'assigmentsTechnical',
         'updates',
         'comments',
+        'sucursal',
         'comments.author',
         'cliente',
         'equipo',
@@ -300,6 +315,16 @@ export class TicketService {
     const technicians = await this.userRepository.find({
       where: { id: In(assigmentsTechnical.assigmentsTechnical) },
     });
+    switch (ticket.status) {
+      case TicketStatus.ON_SITE:
+        ticket.attentionType = TicketAttentionType.EN_SITIO;
+        break;
+      case TicketStatus.IN_REMOTE:
+        ticket.attentionType = TicketAttentionType.REMOTA;
+        break;
+      default:
+        break;
+    }
 
     ticket.assigmentsTechnical = technicians;
     ticket.status = assigmentsTechnical.statusTicket;
@@ -324,6 +349,17 @@ export class TicketService {
 
     if (technicians.length === 0) {
       throw new HttpException('Tecnicos no encontrados', HttpStatus.NOT_FOUND);
+    }
+
+    switch (ticket.status) {
+      case TicketStatus.ON_SITE:
+        ticket.attentionType = TicketAttentionType.EN_SITIO;
+        break;
+      case TicketStatus.IN_REMOTE:
+        ticket.attentionType = TicketAttentionType.REMOTA;
+        break;
+      default:
+        break;
     }
 
     ticket.assigmentsTechnical = technicians;
@@ -1012,6 +1048,41 @@ export class TicketService {
     } else {
       throw new Error('PDF page service is required');
     }
+    await this.ticketRepository.save(ticket);
+  }
+
+  /**
+   * Function to unmark a ticket as foreign
+   *
+   * @param id The ID of the ticket to unmark as foreign
+   * @throws {HttpException} If the ticket is not found
+   */
+  async unmarkAsForeign(id: number) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: id },
+    });
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+    ticket.isForeign = false;
+    await this.ticketRepository.save(ticket);
+  }
+
+  /**
+   * Function to mark a ticket as foreign
+   *
+   * @param id The ID of the ticket to mark as foreign
+   * @throws {HttpException} If the ticket is not found
+   */
+  async markAsForeign(id: number) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: id },
+    });
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    ticket.isForeign = true;
     await this.ticketRepository.save(ticket);
   }
 

@@ -28,6 +28,18 @@ import { TicketStatus } from './enum/ticiket_report_status';
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  @UseGuards(AccessTokenGuard)
+  @Post('markAsForeign/:id')
+  checkUser(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.markAsForeign(id);
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post('unmarkAsForeign/:id')
+  uncheckUser(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.unmarkAsForeign(id);
+  }
+
   @Get('checkStatus/:id')
   checkStatusTicket(@Param('id') id: string){
     return this.ticketService.checkStatusTicket(id)
@@ -141,7 +153,6 @@ export class TicketController {
    * @returns A list of all tickets
    */
   @UseGuards(AccessTokenGuard)
-  @UseGuards(AccessTokenGuard)
   @Get()
   findAll() {
     return this.ticketService.findAll();
@@ -224,13 +235,20 @@ export class TicketController {
       return this.ticketService.updateStatus(id, body.status)
   }
 
+   //@UseGuards(AccessTokenGuard)
+  @Get('allTickets')
+  findAllTickets() {
+    return this.ticketService.findAllTicketBranches()
+  }
+
+
   /**
    * Function to retrieve all tickets by branch ID
    * 
    * @param id The ID of the branch to retrieve tickets for
    * @returns A list of tickets associated with the specified branch
    */
-  @UseGuards(AccessTokenGuard)
+  //@UseGuards(AccessTokenGuard)
   @Get('byBranch/:id')
   findByBranch(@Param('id', ParseIntPipe) id: number) {
     return this.ticketService.findAllByBranch(+id);

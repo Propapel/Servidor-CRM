@@ -1,4 +1,5 @@
 import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
+import { Ticket } from 'src/ticket/entities/ticket.entity';
 import { User } from 'src/users/user.entity';
 import {
   Entity,
@@ -8,6 +9,7 @@ import {
   JoinTable,
   OneToMany,
 } from 'typeorm';
+
 
 @Entity({ name: 'sucursales' })
 export class Sucursales {
@@ -33,6 +35,10 @@ export class Sucursales {
 
   @OneToMany(() => CalendarEvent, (event) => event.sucursal)
   calendarEvents: CalendarEvent[];
+
+  // 🔹 Relación con tickets
+  @OneToMany(() => Ticket, (ticket) => ticket.sucursal)
+  tickets: Ticket[];
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

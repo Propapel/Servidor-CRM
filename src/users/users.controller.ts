@@ -27,6 +27,11 @@ import { UpdateInfoUserDto } from './dto/update-info-user';
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
+  @Get('getUsersWithBranches')
+  getUsersWithBranches() {
+    return this.usersService.getUsersWithBranches();
+  }
+
   /**
    *  Retrieves all users with rol technical.
    * This endpoint is protected by the AccessTokenGuard,

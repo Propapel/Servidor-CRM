@@ -35,7 +35,7 @@ export class Ticket {
   sucursal: Sucursales;
 
   @Column()
-  ticketNumber: number; // consecutivo por sucursal
+  ticketNumber: string; // consecutivo por sucursal
 
   @ManyToOne(() => Client, (cliente) => cliente.tickets)
   cliente: Client;

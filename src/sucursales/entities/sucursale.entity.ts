@@ -22,6 +22,9 @@ export class Sucursales {
   @Column({ nullable: true })
   image: string;
 
+  @Column({ nullable: true })
+  abbreviation: string;
+  
   @Column()
   direccion: string;
 

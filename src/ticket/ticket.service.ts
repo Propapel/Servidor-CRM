@@ -90,9 +90,11 @@ export class TicketService {
       }
     }
 
+
+
     // 6. Crear ticket con ID manual
     const ticket = this.ticketRepository.create({
-      id: ticketId,
+      ticketNumber: `${user.sucursales[0].abbreviation}-${ticketId}`,
       createdBy: user,
       statusToken: uuidv4(),
       nameCommercial: createTicketDto.nameCommercial,

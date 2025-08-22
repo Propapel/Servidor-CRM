@@ -42,7 +42,7 @@ export class TicketService {
   async create(createTicketDto: CreateTicketDto) {
     // 1. Buscar usuario
     const user = await this.userRepository.findOne({
-      where: { id: createTicketDto.userCreated,},
+      where: { id: createTicketDto.userCreated },
       relations: ['sucursales'],
     });
     if (!user)
@@ -65,18 +65,11 @@ export class TicketService {
     }
 
     // 4. Manejar ID por sucursal
-    let lastTicket = await this.ticketRepository.findOne({
+    const count = await this.ticketRepository.count({
       where: { sucursal: { id: user.sucursales[0].id } },
-      order: { id: 'DESC' },
     });
 
-    let ticketId: number;
-    if (!lastTicket) {
-      // Primera vez para esta sucursal
-      ticketId = 1;
-    } else {
-      ticketId = lastTicket.id + 1;
-    }
+    const ticketId = count + 1;
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
@@ -89,8 +82,6 @@ export class TicketService {
         if (fileUrl) newListFiles.push(fileUrl);
       }
     }
-
-
 
     // 6. Crear ticket con ID manual
     const ticket = this.ticketRepository.create({
@@ -168,7 +159,7 @@ export class TicketService {
       order: { createdAt: 'DESC' },
     });
 
-    return tickets
+    return tickets;
   }
 
   findAllByBranch(branchId: number) {
@@ -1232,18 +1223,23 @@ export class TicketService {
 
     const technicalAssignment =
       ticket.status === TicketStatus.ASIGNADO ||
-      ticket.status === TicketStatus.EN_PROCESO || ticket.status === TicketStatus.EN_ESPERA || ticket.status == TicketStatus.ON_SITE || ticket.status == TicketStatus.IN_REMOTE
+      ticket.status === TicketStatus.EN_PROCESO ||
+      ticket.status === TicketStatus.EN_ESPERA ||
+      ticket.status == TicketStatus.ON_SITE ||
+      ticket.status == TicketStatus.IN_REMOTE
         ? `<p><strong>Técnico(s) asignado(s):</strong> ${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</p>`
         : '';
 
     const reportAttentInPlace =
-      ticket.status === TicketStatus.EN_PROCESO &&
-      ticket.attentionType == TicketAttentionType.EN_SITIO || ticket.status == TicketStatus.ON_SITE
+      (ticket.status === TicketStatus.EN_PROCESO &&
+        ticket.attentionType == TicketAttentionType.EN_SITIO) ||
+      ticket.status == TicketStatus.ON_SITE
         ? `<p>El técnico se encuentra en camino para atender el reporte en sitio.</p>`
         : '';
 
     const reportAttentRemote =
-      ticket.status == TicketStatus.ON_SITE || ticket.status == TicketStatus.IN_REMOTE
+      ticket.status == TicketStatus.ON_SITE ||
+      ticket.status == TicketStatus.IN_REMOTE
         ? `<p>El técnico está atendiendo su reporte de manera remota.</p>`
         : '';
 

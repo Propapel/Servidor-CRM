@@ -1735,15 +1735,15 @@ export class TicketService {
           resuelto: '',
         };
 
-      case TicketStatus.ASIGNADO:
+      case TicketStatus.IN_REMOTE:
         return {
           creado: 'done',
-          asignado: 'active',
-          enProceso: '',
+          asignado: 'done',
+          enProceso: 'active',
           resuelto: '',
         };
 
-      case TicketStatus.EN_PROCESO:
+        case TicketStatus.ON_SITE:
         return {
           creado: 'done',
           asignado: 'done',

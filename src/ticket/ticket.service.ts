@@ -41,8 +41,9 @@ export class TicketService {
 
   async create(createTicketDto: CreateTicketDto) {
     // 1. Buscar usuario
-    const user = await this.userRepository.findOneBy({
-      id: createTicketDto.userCreated,
+    const user = await this.userRepository.findOne({
+      where: { id: createTicketDto.userCreated,},
+      relations: ['sucursales'],
     });
     if (!user)
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);

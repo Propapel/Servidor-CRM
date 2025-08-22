@@ -65,11 +65,17 @@ export class TicketService {
     }
 
     // 4. Manejar ID por sucursal
-    const count = await this.ticketRepository.count({
-      where: { sucursal: { id: user.sucursales[0].id } },
-    });
+    // Obtener último ticket de esa sucursal
+    // 4. Obtener el último consecutivo de esa sucursal
+    const lastTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.ticketConsecutive)', 'max')
+      .where('ticket.sucursalId = :sucursalId', {
+        sucursalId: user.sucursales[0].id,
+      })
+      .getRawOne<{ max: number }>();
 
-    const ticketId = count + 1;
+    const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
@@ -85,7 +91,8 @@ export class TicketService {
 
     // 6. Crear ticket con ID manual
     const ticket = this.ticketRepository.create({
-      ticketNumber: `${user.sucursales[0].abbreviation}-${ticketId}`,
+      ticketNumber: `${user.sucursales[0].abbreviation}-${ticketConsecutive}`,
+      ticketConsecutive,
       createdBy: user,
       statusToken: uuidv4(),
       nameCommercial: createTicketDto.nameCommercial,

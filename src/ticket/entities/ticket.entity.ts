@@ -8,6 +8,7 @@ import {
   JoinTable,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from 'src/users/user.entity';
 import { TicketStatus } from '../enum/ticiket_report_status';
@@ -40,8 +41,11 @@ export class Ticket {
   @ManyToOne(() => Client, (cliente) => cliente.tickets)
   cliente: Client;
 
+  @Column()
+  ticketConsecutive: number;
+
   @Column({
-    default: false
+    default: false,
   })
   isForeign: boolean;
 

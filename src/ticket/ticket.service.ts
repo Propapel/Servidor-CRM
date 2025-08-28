@@ -456,7 +456,7 @@ export class TicketService {
 
     ticket.ratingToken = uuidv4();
     ticket.resolved = true;
-    ticket.resolvedAt = new Date().toISOString() as unknown as Date;
+    ticket.resolvedAt = new Date()
 
     ticket.status = TicketStatus.RESUELTO;
     const updatedTicket = await this.ticketRepository.save(ticket);

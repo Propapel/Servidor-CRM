@@ -469,8 +469,8 @@ export class TicketService {
     await this.ticketUpdateRepository.save(updateReport);
 
     // Calcular tiempo total de resolución (días, horas, minutos, segundos)
-    const fechaSolicitud = new Date(ticket.createdAt);
-    const fechaResolucion = new Date(ticket.resolvedAt);
+    const fechaSolicitud = ticket.createdAt;
+    const fechaResolucion = ticket.resolvedAt;
     const tiempoLaboral = this.calcularTiempoLaboralRelativo(
       fechaSolicitud,
       fechaResolucion,
@@ -490,11 +490,39 @@ export class TicketService {
       ticket.ratingToken,
     );
   }
+  toGuatemala(date: Date): Date {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Guatemala',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(date);
+    const get = (type: string) =>
+      parseInt(parts.find((p) => p.type === type)?.value ?? '0', 10);
+
+    return new Date(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour'),
+      get('minute'),
+      get('second'),
+    );
+  }
 
   calcularTiempoLaboralRelativo(
     fechaSolicitud: Date,
     fechaResolucion: Date,
   ): string {
+    fechaSolicitud = this.toGuatemala(fechaSolicitud);
+    fechaResolucion = this.toGuatemala(fechaResolucion);
+
     if (fechaResolucion < fechaSolicitud)
       return 'Fecha de resolución anterior a la solicitud';
 
@@ -1314,17 +1342,15 @@ export class TicketService {
         ? `<p>El ticket se encuentra actualmente en espera.</p>`
         : '';
 
-    const fechaSolicitud = new Date(ticket.createdAt);
-    const fechaResolucion = ticket.resolvedAt
-      ? new Date(ticket.resolvedAt)
-      : null;
+    const fechaSolicitud = ticket.createdAt;
+    const fechaResolucion = ticket.resolvedAt;
     const tiempoLaboral = this.calcularTiempoLaboralRelativo(
       fechaSolicitud,
       fechaResolucion,
     );
 
     const timeResolution =
-      fechaResolucion !== null
+      tiempoLaboral !== ''
         ? `<p><strong>Tiempo de resolución:</strong> ${tiempoLaboral}</p>`
         : '';
 

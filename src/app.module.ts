@@ -39,6 +39,7 @@ import { PermissionModule } from './permission/permission.module';
 import { ProductModule } from './product/product.module';
 import { LicenseModule } from './license/license.module';
 import { LicenseAssignmentModule } from './license-assignment/license-assignment.module';
+import { DealModule } from './deal/deal.module';
 
 @Module({
   imports: [
@@ -85,7 +86,8 @@ import { LicenseAssignmentModule } from './license-assignment/license-assignment
     PermissionModule,
     ProductModule,
     LicenseModule,
-    LicenseAssignmentModule
+    LicenseAssignmentModule,
+    DealModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

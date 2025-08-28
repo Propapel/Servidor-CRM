@@ -122,7 +122,7 @@ export class TicketService {
     // 8. Enviar correos (opcional)
     await this.mailService.sendEmailCreatedReport(
       user.name,
-      savedTicket.id,
+      savedTicket.ticketNumber,
       user.email,
       savedTicket.createdAt.toLocaleDateString(),
       savedTicket.location,
@@ -132,7 +132,7 @@ export class TicketService {
       await this.mailService.sendEmailToClientStatusTicket(
         savedTicket.nameReported,
         savedTicket.emailReport,
-        savedTicket.id,
+        savedTicket.ticketNumber,
         savedTicket.createdAt.toLocaleDateString(),
         savedTicket.statusToken,
       );
@@ -471,9 +471,9 @@ export class TicketService {
     // Calcular tiempo total de resolución (días, horas, minutos, segundos)
     const fechaSolicitud = new Date(ticket.createdAt);
     const fechaResolucion = new Date(ticket.resolvedAt);
-    const dias = Math.ceil(
-      (fechaResolucion.getTime() - fechaSolicitud.getTime()) /
-        (1000 * 60 * 60 * 24),
+    const tiempoLaboral = this.calcularTiempoLaboralRelativo(
+      fechaSolicitud,
+      fechaResolucion,
     );
 
     // Enviar correo
@@ -486,9 +486,68 @@ export class TicketService {
       ticket.reasonReport,
       ticket.assigmentsTechnical.map((t) => t.name).join(', '),
       fechaResolucion.toLocaleDateString(),
-      dias.toString(),
+      tiempoLaboral,
       ticket.ratingToken,
     );
+  }
+
+  calcularTiempoLaboralRelativo(
+    fechaSolicitud: Date,
+    fechaResolucion: Date,
+  ): string {
+    if (fechaResolucion < fechaSolicitud)
+      return 'Fecha de resolución anterior a la solicitud';
+
+    let totalMinutos = 0;
+    const current = new Date(fechaSolicitud);
+
+    while (current < fechaResolucion) {
+      const dia = current.getDay(); // 0 = domingo, 6 = sábado
+      let inicioLab: Date;
+      let finLab: Date;
+
+      if (dia >= 1 && dia <= 5) {
+        // Lunes a viernes: 9:00 - 18:00
+        inicioLab = new Date(current);
+        inicioLab.setHours(9, 0, 0, 0);
+        finLab = new Date(current);
+        finLab.setHours(18, 0, 0, 0);
+      } else if (dia === 6) {
+        // Sábado: 9:00 - 14:00
+        inicioLab = new Date(current);
+        inicioLab.setHours(9, 0, 0, 0);
+        finLab = new Date(current);
+        finLab.setHours(14, 0, 0, 0);
+      } else {
+        // Domingo: no se trabaja
+        current.setDate(current.getDate() + 1);
+        current.setHours(0, 0, 0, 0);
+        continue;
+      }
+
+      // Ajustamos las fechas al rango laboral
+      const inicio = current > inicioLab ? current : inicioLab;
+      const fin = fechaResolucion < finLab ? fechaResolucion : finLab;
+
+      if (inicio < fin) {
+        totalMinutos += (fin.getTime() - inicio.getTime()) / (1000 * 60);
+      }
+
+      // Pasamos al siguiente día
+      current.setDate(current.getDate() + 1);
+      current.setHours(0, 0, 0, 0);
+    }
+
+    const dias = Math.floor(totalMinutos / (60 * 24));
+    const horas = Math.floor((totalMinutos % (60 * 24)) / 60);
+    const minutos = Math.floor(totalMinutos % 60);
+
+    let resultado = '';
+    if (dias > 0) resultado += `${dias} día${dias > 1 ? 's' : ''}, `;
+    if (horas > 0) resultado += `${horas} hora${horas > 1 ? 's' : ''}, `;
+    resultado += `${minutos} minuto${minutos !== 1 ? 's' : ''}`;
+
+    return resultado;
   }
 
   async qualifyServiceByToken(token: string): Promise<string> {
@@ -1259,17 +1318,14 @@ export class TicketService {
     const fechaResolucion = ticket.resolvedAt
       ? new Date(ticket.resolvedAt)
       : null;
-    const dias =
-      ticket.status === TicketStatus.RESUELTO && fechaResolucion
-        ? Math.ceil(
-            (fechaResolucion.getTime() - fechaSolicitud.getTime()) /
-              (1000 * 60 * 60 * 24),
-          )
-        : null;
+    const tiempoLaboral = this.calcularTiempoLaboralRelativo(
+      fechaSolicitud,
+      fechaResolucion,
+    );
 
     const timeResolution =
-      dias !== null
-        ? `<p><strong>Tiempo de resolución:</strong> ${dias} día${dias !== 1 ? 's' : ''}</p>`
+      fechaResolucion !== null
+        ? `<p><strong>Tiempo de resolución:</strong> ${tiempoLaboral}</p>`
         : '';
 
     return `
@@ -1555,7 +1611,7 @@ export class TicketService {
 
                                                         <h2>Seguimiento de tu Ticket</h2>
 
-                                                        <p><strong>Número de Ticket:</strong> #${ticket.id}</p>
+                                                        <p><strong>Número de Ticket:</strong> #${ticket.ticketNumber}</p>
                                                         <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
                                                         <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
                                                         ${technicalAssignment}
@@ -1743,7 +1799,7 @@ export class TicketService {
           resuelto: '',
         };
 
-        case TicketStatus.ON_SITE:
+      case TicketStatus.ON_SITE:
         return {
           creado: 'done',
           asignado: 'done',

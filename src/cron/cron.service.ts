@@ -88,7 +88,7 @@ export class CronService {
   }
    */
 
-  // Cron job para verificar las citas a las 9:30 AM
+  // Cron job para verificar las citas a las 9:00 AM
   @Cron(CronExpression.EVERY_DAY_AT_9AM, {
     name: 'citas antes es mero dia',
     timeZone: 'America/Mexico_City',

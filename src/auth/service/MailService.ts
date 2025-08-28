@@ -178,7 +178,7 @@ export class MailService {
   async sendEmailToClientStatusTicket(
     nameClient: string,
     emailClient: string,
-    ticketId: number,
+    ticketId: string,
     dateCreated: string,
     tocketStatus : string
   ) {
@@ -230,7 +230,7 @@ export class MailService {
 
   async sendEmailCreatedReport(
     userCreatedReport: string,
-    id: number,
+    id: string,
     email: string,
     fecha: string,
     ubicacion: string,

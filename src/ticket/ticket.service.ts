@@ -524,7 +524,7 @@ export class TicketService {
     fechaResolucion = this.toGuatemala(fechaResolucion);
 
     if (fechaResolucion < fechaSolicitud)
-      return 'Fecha de resolución anterior a la solicitud';
+      return '';
 
     let totalMinutos = 0;
     const current = new Date(fechaSolicitud);
@@ -1332,7 +1332,6 @@ export class TicketService {
         : '';
 
     const reportAttentRemote =
-      ticket.status == TicketStatus.ON_SITE ||
       ticket.status == TicketStatus.IN_REMOTE
         ? `<p>El técnico está atendiendo su reporte de manera remota.</p>`
         : '';
@@ -1637,7 +1636,7 @@ export class TicketService {
 
                                                         <h2>Seguimiento de tu Ticket</h2>
 
-                                                        <p><strong>Número de Ticket:</strong> #${ticket.ticketNumber}</p>
+                                                        <p><strong>Número de Ticket:</strong> ${ticket.ticketNumber}</p>
                                                         <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
                                                         <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
                                                         ${technicalAssignment}

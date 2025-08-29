@@ -28,6 +28,9 @@ export class Sucursales {
   @Column()
   direccion: string;
 
+  @Column({ nullable: true})
+  numberContact: string;
+
   @ManyToMany(() => User, (user) => user.sucursales)
   @JoinTable({
     name: 'usuarios_sucursales', // Nombre de la tabla intermedia

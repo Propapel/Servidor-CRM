@@ -531,29 +531,29 @@ export class CustomersService {
   }
 
   async findAllCustomerByUserId(id: number) {
-    const getMyCustomers = await this.customersRepository.find({
-      where: {
-        user: { id },
-        managerReviewStatus: Not(ManagerReviewStatus.DISCARDED),
-      }, // Filtra por el id del usuario relacionado,
-      relations: [
-        'opportunities',
-        'interactions',
-        'purchases',
-        'reminders',
-        'notes',
-      ],
-    });
+  // Traer solo los campos esenciales y relaciones necesarias
+  const customers = await this.customersRepository
+  .createQueryBuilder('customer')
+  .leftJoinAndSelect('customer.user', 'user') // 🔹 Asegura que user esté definido
+  .leftJoinAndSelect('customer.opportunities', 'opportunities')
+  .leftJoinAndSelect('customer.interactions', 'interactions')
+  .leftJoinAndSelect('customer.purchases', 'purchases')
+  .leftJoinAndSelect('customer.reminders', 'reminders')
+  .leftJoinAndSelect('customer.notes', 'notes')
+  .where('customer.userId = :id', { id })
+  .andWhere('customer.managerReviewStatus != :discarded', { discarded: ManagerReviewStatus.DISCARDED })
+  .getMany();
 
-    // Usar map para calcular el progreso y actualizar al mismo tiempo
-    const updatedCustomers = await Promise.all(
-      getMyCustomers.map(async (customer) => {
-        customer.calculateProgress(id);
-        return this.customersRepository.save(customer); // Guardar los cambios
-      }),
-    );
-    return { customers: updatedCustomers };
-  }
+
+  // Calcular progreso en memoria sin guardar uno por uno
+  customers.forEach((customer) => customer.calculateProgress(id));
+
+  // Guardar todos los cambios de una sola vez usando save en batch
+  await this.customersRepository.save(customers);
+
+  return { customers: customers };
+}
+
 
   async findAllCustomersByTypes(id: number) {
     const customersFound = await this.customersRepository.find({

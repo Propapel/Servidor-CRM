@@ -150,90 +150,67 @@ export class TicketService {
   }
 
   async findAllTicketBranches() {
-    const tickets = await this.ticketRepository.find({
-      where: { isDelete: false },
-      relations: [
-        'createdBy',
-        'sucursal',
-        'createdBy.sucursales',
-        'assigmentsTechnical',
-        'updates',
-        'comments',
-        'comments.author',
-        'cliente',
-        'equipo',
-      ],
-      order: { createdAt: 'DESC' },
-    });
-
-    return tickets;
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('createdBy.sucursales', 'createdBySucursales')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .orderBy('ticket.createdAt', 'DESC')
+      .getMany();
   }
 
-  findAllByBranch(branchId: number) {
-    const tickets = this.ticketRepository.find({
-      where: {
-        sucursal: {
-          id: branchId,
-        },
-        isDelete: false,
-      },
-      relations: [
-        'createdBy',
-        'assigmentsTechnical',
-        'updates',
-        'comments',
-        'sucursal',
-        'comments.author',
-        'cliente',
-        'equipo',
-      ],
-      order: {
-        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
-      },
-    });
-
-    return tickets;
+  async findAllByBranch(branchId: number) {
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('sucursal.id = :branchId', { branchId })
+      .orderBy('ticket.createdAt', 'DESC')
+      .getMany();
   }
 
   async findOne(id: number) {
-    const ticket = await this.ticketRepository.findOne({
-      where: { id },
-      relations: [
-        'createdBy',
-        'assigmentsTechnical',
-        'updates',
-        'comments',
-        'comments.author',
-        'cliente',
-        'equipo',
-      ],
-    });
-    return ticket;
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id })
+      .getOne();
   }
 
-  async findMyTicketsCreated(id: number) {
-    const tickets = await this.ticketRepository.find({
-      where: {
-        createdBy: {
-          id: id,
-        },
-        isDelete: false,
-      },
-      relations: [
-        'createdBy',
-        'assigmentsTechnical',
-        'updates',
-        'comments',
-        'comments.author',
-        'cliente',
-        'equipo',
-      ],
-      order: {
-        createdAt: 'DESC', // Aquí ordenas por fecha de creación descendente
-      },
-    });
-
-    return tickets;
+  async findMyTicketsCreated(userId: number) {
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('createdBy.id = :userId', { userId })
+      .orderBy('ticket.createdAt', 'DESC')
+      .getMany();
   }
 
   async findTicketAssigments(id: number) {
@@ -456,7 +433,7 @@ export class TicketService {
 
     ticket.ratingToken = uuidv4();
     ticket.resolved = true;
-    ticket.resolvedAt = new Date()
+    ticket.resolvedAt = new Date();
 
     ticket.status = TicketStatus.RESUELTO;
     const updatedTicket = await this.ticketRepository.save(ticket);
@@ -523,8 +500,7 @@ export class TicketService {
     fechaSolicitud = this.toGuatemala(fechaSolicitud);
     fechaResolucion = this.toGuatemala(fechaResolucion);
 
-    if (fechaResolucion < fechaSolicitud)
-      return '';
+    if (fechaResolucion < fechaSolicitud) return '';
 
     let totalMinutos = 0;
     const current = new Date(fechaSolicitud);
@@ -1294,7 +1270,7 @@ export class TicketService {
         'comments.author',
         'cliente',
         'equipo',
-        'sucursal'
+        'sucursal',
       ],
     });
 
@@ -1303,7 +1279,7 @@ export class TicketService {
     }
 
     const steps = this.getProgressSteps(ticket.status);
-    const numberContact = ticket.sucursal.numberContact
+    const numberContact = ticket.sucursal.numberContact;
 
     const resolvedMessage =
       ticket.status === TicketStatus.RESUELTO
@@ -1716,16 +1692,21 @@ export class TicketService {
 
 
                                                          <div class="tracking-container">
-                                                             ${Object.values(steps)
-                                                             .map(
-                                                             (step, index) => `
+                                                             ${Object.values(
+                                                               steps,
+                                                             )
+                                                               .map(
+                                                                 (
+                                                                   step,
+                                                                   index,
+                                                                 ) => `
                                                              <div class="tracking-step ${step.class}">
                                                                  <div class="icon">${step.icon}</div>
                                                                  <div class="label">${step.label}</div>
                                                              </div>
-                                                             `
-                                                             )
-                                                             .join('')}
+                                                             `,
+                                                               )
+                                                               .join('')}
                                                          </div>
 
 
@@ -1871,33 +1852,32 @@ export class TicketService {
   `;
   }
 
-getProgressSteps(status: TicketStatus) {
-  const steps = {
-    creado: { class: '', icon: '📝', label: 'Creado' },
-    asignado: { class: '', icon: '👷‍♂️', label: 'Asignado' },
-    enProceso: { class: '', icon: '⚙️', label: 'En Proceso' },
-    resuelto: { class: '', icon: '✅', label: 'Resuelto' },
-  };
+  getProgressSteps(status: TicketStatus) {
+    const steps = {
+      creado: { class: '', icon: '📝', label: 'Creado' },
+      asignado: { class: '', icon: '👷‍♂️', label: 'Asignado' },
+      enProceso: { class: '', icon: '⚙️', label: 'En Proceso' },
+      resuelto: { class: '', icon: '✅', label: 'Resuelto' },
+    };
 
-  switch (status) {
-    case TicketStatus.SIN_ASIGNAR:
-      steps.creado.class = 'active';
-      break;
-    case TicketStatus.IN_REMOTE:
-    case TicketStatus.ON_SITE:
-      steps.creado.class = 'done';
-      steps.asignado.class = 'done';
-      steps.enProceso.class = 'active';
-      break;
-    case TicketStatus.RESUELTO:
-      steps.creado.class = 'done';
-      steps.asignado.class = 'done';
-      steps.enProceso.class = 'done';
-      steps.resuelto.class = 'active';
-      break;
+    switch (status) {
+      case TicketStatus.SIN_ASIGNAR:
+        steps.creado.class = 'active';
+        break;
+      case TicketStatus.IN_REMOTE:
+      case TicketStatus.ON_SITE:
+        steps.creado.class = 'done';
+        steps.asignado.class = 'done';
+        steps.enProceso.class = 'active';
+        break;
+      case TicketStatus.RESUELTO:
+        steps.creado.class = 'done';
+        steps.asignado.class = 'done';
+        steps.enProceso.class = 'done';
+        steps.resuelto.class = 'active';
+        break;
+    }
+
+    return steps;
   }
-
-  return steps;
-}
-
 }

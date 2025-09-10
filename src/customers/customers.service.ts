@@ -544,13 +544,6 @@ export class CustomersService {
   .andWhere('customer.managerReviewStatus != :discarded', { discarded: ManagerReviewStatus.DISCARDED })
   .getMany();
 
-
-  // Calcular progreso en memoria sin guardar uno por uno
-  customers.forEach((customer) => customer.calculateProgress(id));
-
-  // Guardar todos los cambios de una sola vez usando save en batch
-  await this.customersRepository.save(customers);
-
   return { customers: customers };
 }
 

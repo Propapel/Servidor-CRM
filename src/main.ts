@@ -7,7 +7,12 @@ import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
    // Habilitar CORS (debe ir aquí)
-  
+  app.enableCors({
+    origin: '*', // o ['http://localhost:3000'] para permitir solo tu frontend
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
+
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
   // Aumentar el límite de tamaño del cuerpo de la solicitud
   app.use(bodyParser.json({ limit: '100mb' })); // Cambia '10mb' según sea necesario

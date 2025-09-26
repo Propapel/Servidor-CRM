@@ -11,6 +11,7 @@ import {
   Res,
   Query,
   Put,
+  Sse,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -23,11 +24,22 @@ import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { User } from 'src/users/user.entity';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 import { TicketStatus } from './enum/ticiket_report_status';
+import { map, Observable } from 'rxjs';
+import { Ticket } from './entities/ticket.entity';
 
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  /*
+  @Sse('stream/:branchId')
+  streamTickets(@Param('branchId', ParseIntPipe) branchId: number): Observable<MessageEvent> {
+    return this.ticketService.getTicketStream(branchId).pipe(
+      map((tickets: Ticket[]) => ({ data: tickets } as MessageEvent)),
+    );
+  }
+
+   */
   @UseGuards(AccessTokenGuard)
   @Post('markAsForeign/:id')
   checkUser(@Param('id', ParseIntPipe) id: number) {

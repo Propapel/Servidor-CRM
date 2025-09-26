@@ -7,11 +7,21 @@ import {
 } from '../enum/itequiment.enum';
 import { Department } from 'src/departments/entities/department.entity';
 import { Ticket } from 'src/ticket/entities/ticket.entity';
+import { Contador } from 'src/contador/entities/contador.entity';
 
 @Entity('itequipment')
 export class Itequipment {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
+  tonerLevel: string;
+
+  @Column()
+  departament: string;
+
+  @Column()
+  addressInstallation: string;
 
   @Column({nullable: true})
   password?: string;
@@ -25,11 +35,8 @@ export class Itequipment {
   })
   tipoEquipo: TipoEquipo;
 
-  @Column({
-    type: 'enum',
-    enum: Marca,
-  })
-  marca: Marca;
+  @Column()
+  marca: string;
 
   // Solo si es impresora
   @Column({
@@ -67,5 +74,11 @@ export class Itequipment {
   @Column({ nullable: true })
   licenseNubePrint?: string;
 
+  @Column()
+  numberPrinter: string;
+
+   // Relación inversa: un equipo tiene muchos contadores
+  @OneToMany(() => Contador, (contador) => contador.equipo)
+  contadores: Contador[];
 
 }

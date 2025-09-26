@@ -40,6 +40,13 @@ import { ProductModule } from './product/product.module';
 import { LicenseModule } from './license/license.module';
 import { LicenseAssignmentModule } from './license-assignment/license-assignment.module';
 import { DealModule } from './deal/deal.module';
+import { EquipmentRequestModule } from './equipment-request/equipment-request.module';
+import { BitacoraModule } from './bitacora/bitacora.module';
+import { RentaModule } from './renta/renta.module';
+import { ContadorModule } from './contador/contador.module';
+import { FacturacionRentaModule } from './facturacion-renta/facturacion-renta.module';
+import { TicketStatusModule } from './ticket-status/ticket-status.module';
+import { TypeOfReportModule } from './type-of-report/type-of-report.module';
 
 @Module({
   imports: [
@@ -87,7 +94,14 @@ import { DealModule } from './deal/deal.module';
     ProductModule,
     LicenseModule,
     LicenseAssignmentModule,
-    DealModule
+    DealModule,
+    EquipmentRequestModule,
+    BitacoraModule,
+    RentaModule,
+    ContadorModule,
+    FacturacionRentaModule,
+    TicketStatusModule,
+    TypeOfReportModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

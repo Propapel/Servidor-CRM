@@ -21,8 +21,31 @@ import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity
 import ERROR_FOUND_TICKET from './web/error_found_ticket';
 import ERROR_TICKET_QUALIFIED from './web/error_ticket_qualified';
 import { TicketAttentionType } from './enum/ticket_attention_type';
+import { Observable, Subject } from 'rxjs';
 @Injectable()
 export class TicketService {
+
+ /*
+  private ticketStreams: Map<number, Subject<Ticket[]>> = new Map();
+
+    // Obtener flujo SSE para una sucursal
+  getTicketStream(branchId: number): Observable<Ticket[]> {
+    if (!this.ticketStreams.has(branchId)) {
+      this.ticketStreams.set(branchId, new Subject<Ticket[]>());
+      // Emitir tickets iniciales
+      this.emitTickets(branchId);
+    }
+    return this.ticketStreams.get(branchId).asObservable();
+  }
+
+  // Método que obtiene los tickets de la DB y emite
+  async emitTickets(branchId: number) {
+    const tickets = await this.findAllByBranch(branchId);
+    const subject = this.ticketStreams.get(branchId);
+    subject?.next(tickets);
+  }
+ */
+
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
@@ -137,6 +160,8 @@ export class TicketService {
         savedTicket.statusToken,
       );
     }
+
+    // await this.emitTickets(user.sucursales[0].id);
 
     // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({

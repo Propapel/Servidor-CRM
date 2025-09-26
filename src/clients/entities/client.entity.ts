@@ -13,6 +13,9 @@ export class Client {
   numberOfClient: string;
 
   @Column()
+  codeClient: string;
+  
+  @Column()
   razonSocial: string;
 
   @Column()

@@ -72,7 +72,7 @@ export class Ticket {
   @Column()
   emailReport: string;
 
-  @Column()
+  @Column({ type: 'text' })
   reasonReport: string;
 
   @Column({ nullable: true })
@@ -95,7 +95,7 @@ export class Ticket {
   })
   isDelete: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   serviceComment: string;
 
   @Column({ type: 'datetime', nullable: true })
@@ -132,7 +132,7 @@ export class Ticket {
   })
   priority: TicketPriority;
 
-  @Column({ nullable: true })
+ @Column({ type: 'text', nullable: true })
   reasonPause?: string;
 
   @Column({

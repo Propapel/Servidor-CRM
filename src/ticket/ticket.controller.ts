@@ -12,6 +12,8 @@ import {
   Query,
   Put,
   Sse,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -24,12 +26,25 @@ import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { User } from 'src/users/user.entity';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 import { TicketStatus } from './enum/ticiket_report_status';
-import { map, Observable } from 'rxjs';
+import { map, Observable, retry } from 'rxjs';
 import { Ticket } from './entities/ticket.entity';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
+
+  @Post('closeTicketWithPdf/:id')
+  @UseInterceptors(FileInterceptor('file'))
+  async closeTicketPDF(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    console.log('Archivo recibido:', file.originalname, file.size);
+
+    return this.ticketService.closeTicketWithFile(file, id);
+  }
+
 
   /*
   @Sse('stream/:branchId')
@@ -53,19 +68,22 @@ export class TicketController {
   }
 
   @Get('checkStatus/:id')
-  checkStatusTicket(@Param('id') id: string){
-    return this.ticketService.checkStatusTicket(id)
+  checkStatusTicket(@Param('id') id: string) {
+    return this.ticketService.checkStatusTicket(id);
   }
 
   @Post('pausedTicket/:id')
-  pausedTicket(@Param('id', ParseIntPipe) id: number, @Body() body: { reasonPause: string }){
-    return this.ticketService.onPauseTicket(id, body.reasonPause)
+  pausedTicket(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { reasonPause: string },
+  ) {
+    return this.ticketService.onPauseTicket(id, body.reasonPause);
   }
 
   @UseGuards(AccessTokenGuard)
   @Post('sendPageService/:id')
-  sendPageService(@Param('id', ParseIntPipe) id: number){
-    return this.ticketService.sendPageService(id)
+  sendPageService(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.sendPageService(id);
   }
 
   /**
@@ -82,7 +100,7 @@ export class TicketController {
 
   /**
    * Function to mark a ticket as in progress for the technical
-   * 
+   *
    * @param id The ID of the ticket to mark as in progress for the technical
    * @returns A confirmation message indicating the ticket has been marked as in progress for the technical
    */
@@ -95,7 +113,7 @@ export class TicketController {
   /**
    * Function to add a comment to a ticket
    * @param addCommentTicketDto The DTO containing the comment information
-   * 
+   *
    */
   @UseGuards(AccessTokenGuard)
   @Post('addComment')
@@ -117,7 +135,7 @@ export class TicketController {
 
   /**
    * Fuction to create a new ticket
-   * 
+   *
    * @param createTicketDto The DTO containing the ticket creation data
    * @returns The created ticket
    */
@@ -161,7 +179,7 @@ export class TicketController {
 
   /**
    * Function to retrieve all tickets
-   * 
+   *
    * @returns A list of all tickets
    */
   @UseGuards(AccessTokenGuard)
@@ -172,7 +190,7 @@ export class TicketController {
 
   /**
    * Function to qualify a ticket by token
-   * 
+   *
    * @param token The token used to qualify the ticket
    * @param res The response object to send the HTML content
    */
@@ -185,7 +203,7 @@ export class TicketController {
 
   /**
    * Function to rate a ticket
-   * 
+   *
    * @param id The ID of the ticket to be rated
    * @param dto The DTO containing the rating data
    * @returns A confirmation message indicating the ticket has been rated
@@ -200,7 +218,7 @@ export class TicketController {
 
   /**
    * Function to assign a technical to a ticket
-   * 
+   *
    * @param id The ID of the ticket to be assigned
    * @param asignTechnicalDto The DTO containing the assignment data
    * @returns A confirmation message indicating the ticket has been assigned to the technical
@@ -223,40 +241,39 @@ export class TicketController {
     return this.ticketService.updateAssignTechnical(+id, asignTechnicalDto);
   }
 
-
   /**
    * Function to close a ticket
-   * 
+   *
    * @param id The ID of the ticket to be closed
    * @param closeTicketDto The DTO containing the close ticket data
    * @returns A confirmation message indicating the ticket has been closed
    */
   @UseGuards(AccessTokenGuard)
-  @Post('close/:id')
+  @Post('close22/:id')
   closeTicket(
-    @Param('id', ParseIntPipe) id: number, @Body() closeTicketDto: CloseTicketDto
+    @Param('id', ParseIntPipe) id: number,
+    @Body() closeTicketDto: CloseTicketDto,
   ) {
     return this.ticketService.closeTicket(+id, closeTicketDto);
   }
 
-
   @Put('updateStatus/:id')
   updateStatusTicket(
-    @Param('id', ParseIntPipe) id: number,  @Body() body: { status: TicketStatus },
-  ){
-      return this.ticketService.updateStatus(id, body.status)
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { status: TicketStatus },
+  ) {
+    return this.ticketService.updateStatus(id, body.status);
   }
 
-   //@UseGuards(AccessTokenGuard)
+  //@UseGuards(AccessTokenGuard)
   @Get('allTickets')
   findAllTickets() {
-    return this.ticketService.findAllTicketBranches()
+    return this.ticketService.findAllTicketBranches();
   }
-
 
   /**
    * Function to retrieve all tickets by branch ID
-   * 
+   *
    * @param id The ID of the branch to retrieve tickets for
    * @returns A list of tickets associated with the specified branch
    */
@@ -268,7 +285,7 @@ export class TicketController {
 
   /**
    * Function to retrieve a ticket by ID
-   * 
+   *
    * @param id The ID of the ticket to be retrieved
    * @returns The ticket with the specified ID
    */
@@ -280,7 +297,7 @@ export class TicketController {
 
   /**
    * Function to update a ticket by its ID
-   * 
+   *
    * @param id The ID of the ticket to be updated
    * @param updateTicketDto The DTO containing the updated ticket data
    * @returns The updated ticket
@@ -293,7 +310,7 @@ export class TicketController {
 
   /**
    * Function to remove a ticket by its ID
-   * 
+   *
    * @param id The ID of the ticket to be removed
    * @returns A confirmation message indicating the ticket has been removed
    */

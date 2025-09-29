@@ -81,7 +81,7 @@ export class AuthService {
     if (user.image && user.image.trim() !== '') {
       const buffer = Buffer.from(user.image, 'base64');
       const pathImage = `profilePhoto_${Date.now()}`;
-      const imageUrl = await storage(buffer, pathImage, 'image/png');
+      const imageUrl = await storage.uploadFromBuffer(buffer, pathImage, 'image/png');
 
       if (imageUrl) {
         newUser.image = imageUrl; // Guarda la URL de la imagen

@@ -19,7 +19,7 @@ export class BannersService {
       if (createBannerDto.imageUrl != '') {
         const buffer = Buffer.from(createBannerDto.imageUrl, 'base64'); // Asegúrate de que image sea una cadena Base64 válida
         const pathImage = `banner_${Date.now()}`;
-        const imageUrl = await storage(buffer, pathImage);
+        const imageUrl = await storage.uploadFromBuffer(buffer, pathImage);
   
         if (imageUrl) {
           banner.imageUrl = imageUrl; // Actualiza la URL de la imagen en el objeto user

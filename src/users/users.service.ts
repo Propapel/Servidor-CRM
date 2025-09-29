@@ -401,7 +401,7 @@ export class UsersService {
     if (updateUserInfo.image != existingUser.image) {
       const buffer = Buffer.from(updateUserInfo.image, 'base64');
       const pathImage = `profilePhoto_${Date.now()}`;
-      const imageUrl = await storage(buffer, pathImage);
+      const imageUrl = await storage.uploadFromBuffer(buffer, pathImage);
 
       if (imageUrl) {
         existingUser.image = imageUrl; // Actualiza la URL de la imagen
@@ -471,7 +471,7 @@ export class UsersService {
     if (user.image != '') {
       const buffer = Buffer.from(user.image, 'base64'); // Asegúrate de que image sea una cadena Base64 válida
       const pathImage = `profilePhoto_${Date.now()}`;
-      const imageUrl = await storage(buffer, pathImage);
+      const imageUrl = await storage.uploadFromBuffer(buffer, pathImage);
 
       if (imageUrl) {
         user.image = imageUrl; // Actualiza la URL de la imagen en el objeto user

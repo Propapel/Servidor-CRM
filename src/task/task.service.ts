@@ -29,7 +29,7 @@ export class TaskService {
         const attachment = createTaskDto.files[i];
         const buffer = Buffer.from(attachment, 'base64');
         const pathFile = `fileActivity${createTaskDto.userId}_${Date.now()}`;
-        const fileUrl = await storage(buffer, pathFile, 'application/pdf');
+        const fileUrl = await storage.uploadFromBuffer(buffer, pathFile, 'application/pdf');
         if (fileUrl) {
           newListFiles.push(fileUrl);
         }
@@ -134,7 +134,7 @@ export class TaskService {
           try {
             const buffer = Buffer.from(file, 'base64');
             const pathFile = `fileActivity${updateTaskDto.userId}_${Date.now()}`;
-            const fileUrl = await storage(buffer, pathFile, 'application/pdf');
+            const fileUrl = await storage.uploadFromBuffer(buffer, pathFile, 'application/pdf');
 
             if (fileUrl) {
               updatedFiles.push(fileUrl);

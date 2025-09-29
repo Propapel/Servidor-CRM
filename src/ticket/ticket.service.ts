@@ -24,8 +24,7 @@ import { TicketAttentionType } from './enum/ticket_attention_type';
 import { Observable, Subject } from 'rxjs';
 @Injectable()
 export class TicketService {
-
- /*
+  /*
   private ticketStreams: Map<number, Subject<Ticket[]>> = new Map();
 
     // Obtener flujo SSE para una sucursal
@@ -107,7 +106,11 @@ export class TicketService {
         const attachment = createTicketDto.files[i];
         const buffer = Buffer.from(attachment, 'base64');
         const pathFile = `fileActivity${createTicketDto.clientId}_${Date.now()}`;
-        const fileUrl = await storage(buffer, pathFile, 'image/png');
+        const fileUrl = await storage.uploadFromBuffer(
+          buffer,
+          pathFile,
+          'image/png',
+        );
         if (fileUrl) newListFiles.push(fileUrl);
       }
     }
@@ -421,6 +424,73 @@ export class TicketService {
 
     await this.ticketRepository.save(ticket);
   }
+  async closeTicketWithFile(file: Express.Multer.File, ticketId: number) {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId },
+      relations: ['createdBy', 'assigmentsTechnical'],
+    });
+
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    // Subimos usando el mimetype que trae el archivo
+    console.log('Tipo de archivo:', file.mimetype);
+    const url = await storage.uploadFromFile(
+      file,
+      file.originalname,
+      file.mimetype, // dinámico
+    );
+
+    ticket.ratingToken = uuidv4();
+    ticket.resolved = true;
+    ticket.resolvedAt = new Date();
+    ticket.status = TicketStatus.RESUELTO;
+
+    // Según el tipo de archivo guardamos en el campo correspondiente
+    if (file.mimetype == 'image/png' || file.mimetype === 'image/jpeg') {
+      ticket.imagePageService = url;
+    } else if (file.mimetype === 'application/pdf') {
+      ticket.pdfPageService = url;
+    } else {
+      throw new Error(`Tipo de archivo no soportado: ${file.mimetype}`);
+    }
+    /*
+     else if (file.mimetype.startsWith('video/')) {
+      ticket.videoPageService = url; // si quieres soportar videos
+    } */
+
+    const updatedTicket = await this.ticketRepository.save(ticket);
+
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.CLOSED,
+      ticket: updatedTicket,
+    });
+
+    await this.ticketUpdateRepository.save(updateReport);
+
+    // Calcular tiempo total de resolución (días, horas, minutos, segundos)
+    const fechaSolicitud = ticket.createdAt;
+    const fechaResolucion = ticket.resolvedAt;
+    const tiempoLaboral = this.calcularTiempoLaboralRelativo(
+      fechaSolicitud,
+      fechaResolucion,
+    );
+
+    // Enviar correo
+    await this.mailService.closeTicketEmail(
+      ticket.nameReported,
+      ticket.id,
+      ticket.emailReport,
+      fechaSolicitud.toLocaleDateString(),
+      ticket.location,
+      ticket.reasonReport,
+      ticket.assigmentsTechnical.map((t) => t.name).join(', '),
+      fechaResolucion.toLocaleDateString(),
+      tiempoLaboral,
+      ticket.ratingToken,
+    );
+  }
 
   async closeTicket(ticketId: number, closeTicketDto: CloseTicketDto) {
     const ticket = await this.ticketRepository.findOne({
@@ -437,7 +507,11 @@ export class TicketService {
     ) {
       const buffer = Buffer.from(closeTicketDto.imagePageService, 'base64');
       const pathPdf = `image_service_Ticket${ticketId}_${Date.now()}`;
-      const imageResult = await storage(buffer, pathPdf, 'image/png');
+      const imageResult = await storage.uploadFromBuffer(
+        buffer,
+        pathPdf,
+        'image/png',
+      );
 
       if (imageResult) {
         ticket.imagePageService = imageResult; // Guarda la URL de la imagen
@@ -449,7 +523,11 @@ export class TicketService {
     ) {
       const buffer = Buffer.from(closeTicketDto.pdfPageService, 'base64');
       const pathPdf = `pdf_service_Ticket${ticketId}_${Date.now()}`;
-      const pdfUrl = await storage(buffer, pathPdf, 'application/pdf');
+      const pdfUrl = await storage.uploadFromBuffer(
+        buffer,
+        pathPdf,
+        'application/pdf',
+      );
 
       if (pdfUrl) {
         ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
@@ -1099,7 +1177,11 @@ export class TicketService {
     if (pdf && pdf.trim() !== '') {
       const buffer = Buffer.from(pdf, 'base64');
       const pathPdf = `pdf_service_Ticket${id}_${Date.now()}`;
-      const pdfUrl = await storage(buffer, pathPdf, 'application/pdf');
+      const pdfUrl = await storage.uploadFromBuffer(
+        buffer,
+        pathPdf,
+        'application/pdf',
+      );
 
       if (pdfUrl) {
         ticket.pdfPageService = pdfUrl; // Guarda la URL de la imagen
@@ -1129,7 +1211,11 @@ export class TicketService {
     if (image && image.trim() !== '') {
       const buffer = Buffer.from(image, 'base64');
       const pathPdf = `image_service_Ticket${id}_${Date.now()}`;
-      const imageResult = await storage(buffer, pathPdf, 'image/png');
+      const imageResult = await storage.uploadFromBuffer(
+        buffer,
+        pathPdf,
+        'image/png',
+      );
 
       if (imageResult) {
         ticket.imagePageService = imageResult; // Guarda la URL de la imagen
@@ -1257,7 +1343,11 @@ export class TicketService {
     ) {
       const buffer = Buffer.from(addCommentTicketDto.imageUrl, 'base64');
       const pathPdf = `image_comment_${addCommentTicketDto.userId}_Ticket${addCommentTicketDto.ticketId}_${Date.now()}`;
-      const imageResult = await storage(buffer, pathPdf, 'image/png');
+      const imageResult = await storage.uploadFromBuffer(
+        buffer,
+        pathPdf,
+        'image/png',
+      );
 
       if (imageResult) {
         imageUrl = imageResult; // Guarda la URL de la imagen

@@ -36,7 +36,7 @@ export class ActivityService {
         const attachment = createActivityDto.attachments[i];
         const buffer = Buffer.from(attachment, 'base64');
         const pathFile = `fileActivity${createActivityDto.title}_${Date.now()}`;
-        const fileUrl = await storage(buffer, pathFile, 'application/pdf')
+        const fileUrl = await storage.uploadFromBuffer(buffer, pathFile, 'application/pdf')
         if(fileUrl){
            newListFiles.push(fileUrl)
         }

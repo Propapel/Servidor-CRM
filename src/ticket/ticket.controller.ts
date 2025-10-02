@@ -249,7 +249,7 @@ export class TicketController {
    * @returns A confirmation message indicating the ticket has been closed
    */
   @UseGuards(AccessTokenGuard)
-  @Post('close22/:id')
+  @Post('close/:id')
   closeTicket(
     @Param('id', ParseIntPipe) id: number,
     @Body() closeTicketDto: CloseTicketDto,

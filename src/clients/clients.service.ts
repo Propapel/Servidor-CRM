@@ -39,9 +39,14 @@ export class ClientsService {
   }
 
   async findAll() {
-    return this.clientRepository.find({
-      relations: ['departamentos', 'tickets'],
-    });
+     const clients = await this.clientRepository.find();
+    if (clients.length === 0) {
+      throw new HttpException(
+        'No se encontraron clientes para esta sucursal',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return clients;
   }
 
   async findBySucursal(sucursalId: number) {

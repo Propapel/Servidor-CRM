@@ -14,6 +14,8 @@ import {
   Sse,
   UploadedFile,
   UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -28,7 +30,8 @@ import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 import { TicketStatus } from './enum/ticiket_report_status';
 import { map, Observable, retry } from 'rxjs';
 import { Ticket } from './entities/ticket.entity';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 
 @Controller('ticket')
 export class TicketController {
@@ -45,16 +48,39 @@ export class TicketController {
     return this.ticketService.closeTicketWithFile(file, id);
   }
 
+   @Post('createTicketPlazaWithFiles')
+  @UseInterceptors(FilesInterceptor('files'))
+  async createTicketPlazaWithFiles(
+    @Body('createTicketDto') createTicketDtoPlaza: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    let createTicketDto: CreateTicketPlazaDto;
+    try {
+      createTicketDto = JSON.parse(createTicketDtoPlaza);
+    } catch (error) {
+      throw new BadRequestException('Invalid CreateTicketDto format');
+    }
 
-  /*
-  @Sse('stream/:branchId')
-  streamTickets(@Param('branchId', ParseIntPipe) branchId: number): Observable<MessageEvent> {
-    return this.ticketService.getTicketStream(branchId).pipe(
-      map((tickets: Ticket[]) => ({ data: tickets } as MessageEvent)),
-    );
+    return this.ticketService.createTicketPlaza(files, createTicketDto);
   }
 
-   */
+
+  @Post('createTicketWithFiles')
+  @UseInterceptors(FilesInterceptor('files'))
+  async createTicketWithFiles(
+    @Body('createTicketDto') createTicketDtoStr: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    let createTicketDto: CreateTicketDto;
+    try {
+      createTicketDto = JSON.parse(createTicketDtoStr);
+    } catch (error) {
+      throw new BadRequestException('Invalid CreateTicketDto format');
+    }
+
+    return this.ticketService.createTicketWithFiles(files, createTicketDto);
+  }
+
   @UseGuards(AccessTokenGuard)
   @Post('markAsForeign/:id')
   checkUser(@Param('id', ParseIntPipe) id: number) {

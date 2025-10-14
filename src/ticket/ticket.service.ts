@@ -22,6 +22,8 @@ import ERROR_FOUND_TICKET from './web/error_found_ticket';
 import ERROR_TICKET_QUALIFIED from './web/error_ticket_qualified';
 import { TicketAttentionType } from './enum/ticket_attention_type';
 import { Observable, Subject } from 'rxjs';
+import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
+import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 @Injectable()
 export class TicketService {
   /*
@@ -46,6 +48,8 @@ export class TicketService {
  */
 
   constructor(
+    @InjectRepository(Sucursales)
+    private sucursalRepository: Repository<Sucursales>,
     @InjectRepository(Ticket)
     private readonly ticketRepository: Repository<Ticket>,
     @InjectRepository(User)
@@ -60,6 +64,236 @@ export class TicketService {
     @InjectRepository(TicketComment)
     private readonly ticketCommentRepository: Repository<TicketComment>,
   ) {}
+
+  async createTicketPlaza(
+    files: Express.Multer.File[],
+    createTicketDtoPlaza: CreateTicketPlazaDto,
+  ) {
+
+    console.log('Datos recibidos en createTicketPlaza: %o', createTicketDtoPlaza);
+    const sucursal = await this.sucursalRepository.findOne({
+      where: {
+        id: createTicketDtoPlaza.plazaId,
+      }
+    })
+    console.log('Sucursal encontrada: %o', sucursal);
+
+    const user = await this.userRepository.findOne({
+      where: { id: createTicketDtoPlaza.userCreated },
+      relations: ['sucursales'],
+    });
+    if (!user)
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+
+  
+
+    // 2. Buscar cliente
+    const client = await this.clientRepository.findOne({
+      where: { id: createTicketDtoPlaza.clientId },
+      relations: ['user'],
+    });
+    if (!client)
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+
+    // 3. Buscar equipo (si existe)
+    let equipo: Itequipment | null = null;
+    if (createTicketDtoPlaza.itequipId) {
+      equipo = await this.itequipRepository.findOneBy({
+        id: createTicketDtoPlaza.itequipId,
+      });
+    }
+
+    const lastTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.ticketConsecutive)', 'max')
+      .where('ticket.sucursalId = :sucursalId', {
+        sucursalId: createTicketDtoPlaza.plazaId,
+      })
+      .getRawOne<{ max: number }>();
+
+    const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
+
+    // 5. Procesar archivos
+    const newListFiles: string[] = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const attachment = files[i];
+        const pathFile = `file_report_ticket${createTicketDtoPlaza.clientId}_${Date.now()}`;
+        const fileUrl = await storage.uploadFromFile(
+          attachment,
+          pathFile,
+          attachment.mimetype,
+        );
+        if (fileUrl) newListFiles.push(fileUrl);
+      }
+    }
+
+    // 6. Crear ticket con ID manual
+    const ticket = this.ticketRepository.create({
+      ticketNumber: `${sucursal.abbreviation}-${ticketConsecutive}`,
+      ticketConsecutive,
+      createdBy: user,
+      statusToken: uuidv4(),
+      nameCommercial: createTicketDtoPlaza.nameCommercial,
+      nameReported: createTicketDtoPlaza.nameReported,
+      apartamentReport: createTicketDtoPlaza.apartamentReport,
+      reasonReport: createTicketDtoPlaza.reasonReport,
+      location: createTicketDtoPlaza.location,
+      files: newListFiles,
+      sucursal: sucursal, // Asignar sucursal del usuario
+      phoneReport: createTicketDtoPlaza.phoneReport,
+      emailReport: createTicketDtoPlaza.emailReport,
+      status: createTicketDtoPlaza.status,
+      typeOfReport: createTicketDtoPlaza.typeOfReport,
+      cliente: client,
+      equipo: equipo ?? null,
+    });
+
+    const savedTicket = await this.ticketRepository.save(ticket);
+
+    // 7. Crear registro en historial
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.CREATED,
+      ticket: savedTicket,
+    });
+    await this.ticketUpdateRepository.save(updateReport);
+
+    // 8. Enviar correos (opcional)
+    await this.mailService.sendEmailCreatedReport(
+      user.name,
+      savedTicket.ticketNumber,
+      user.email,
+      savedTicket.createdAt.toLocaleDateString(),
+      savedTicket.location,
+      savedTicket.reasonReport,
+    );
+    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
+      await this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported,
+        savedTicket.emailReport,
+        savedTicket.ticketNumber,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.statusToken,
+      );
+    }
+
+    // await this.emitTickets(user.sucursales[0].id);
+
+    // 9. Retornar ticket con relaciones
+    return this.ticketRepository.findOne({
+      where: { id: savedTicket.id },
+      relations: ['updates', 'createdBy', 'cliente', 'equipo'],
+    });
+  }
+  async createTicketWithFiles(
+    files: Express.Multer.File[],
+    createTicketDto: CreateTicketDto,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: createTicketDto.userCreated },
+      relations: ['sucursales'],
+    });
+    if (!user)
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+
+    // 2. Buscar cliente
+    const client = await this.clientRepository.findOne({
+      where: { id: createTicketDto.clientId },
+      relations: ['user'],
+    });
+    if (!client)
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+
+    // 3. Buscar equipo (si existe)
+    let equipo: Itequipment | null = null;
+    if (createTicketDto.itequipId) {
+      equipo = await this.itequipRepository.findOneBy({
+        id: createTicketDto.itequipId,
+      });
+    }
+
+    const lastTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.ticketConsecutive)', 'max')
+      .where('ticket.sucursalId = :sucursalId', {
+        sucursalId: user.sucursales[0].id,
+      })
+      .getRawOne<{ max: number }>();
+
+    const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
+
+    // 5. Procesar archivos
+    const newListFiles: string[] = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const attachment = files[i];
+        const pathFile = `file_report_ticket${createTicketDto.clientId}_${Date.now()}`;
+        const fileUrl = await storage.uploadFromFile(
+          attachment,
+          pathFile,
+          attachment.mimetype,
+        );
+        if (fileUrl) newListFiles.push(fileUrl);
+      }
+    }
+
+    // 6. Crear ticket con ID manual
+    const ticket = this.ticketRepository.create({
+      ticketNumber: `${user.sucursales[0].abbreviation}-${ticketConsecutive}`,
+      ticketConsecutive,
+      createdBy: user,
+      statusToken: uuidv4(),
+      nameCommercial: createTicketDto.nameCommercial,
+      nameReported: createTicketDto.nameReported,
+      apartamentReport: createTicketDto.apartamentReport,
+      reasonReport: createTicketDto.reasonReport,
+      location: createTicketDto.location,
+      files: newListFiles,
+      sucursal: user.sucursales[0], // Asignar sucursal del usuario
+      phoneReport: createTicketDto.phoneReport,
+      emailReport: createTicketDto.emailReport,
+      status: createTicketDto.status,
+      typeOfReport: createTicketDto.typeOfReport,
+      cliente: client,
+      equipo: equipo ?? null,
+    });
+
+    const savedTicket = await this.ticketRepository.save(ticket);
+
+    // 7. Crear registro en historial
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.CREATED,
+      ticket: savedTicket,
+    });
+    await this.ticketUpdateRepository.save(updateReport);
+
+    // 8. Enviar correos (opcional)
+    await this.mailService.sendEmailCreatedReport(
+      user.name,
+      savedTicket.ticketNumber,
+      user.email,
+      savedTicket.createdAt.toLocaleDateString(),
+      savedTicket.location,
+      savedTicket.reasonReport,
+    );
+    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
+      await this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported,
+        savedTicket.emailReport,
+        savedTicket.ticketNumber,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.statusToken,
+      );
+    }
+
+    // await this.emitTickets(user.sucursales[0].id);
+
+    // 9. Retornar ticket con relaciones
+    return this.ticketRepository.findOne({
+      where: { id: savedTicket.id },
+      relations: ['updates', 'createdBy', 'cliente', 'equipo'],
+    });
+  }
 
   async create(createTicketDto: CreateTicketDto) {
     // 1. Buscar usuario
@@ -321,15 +555,13 @@ export class TicketService {
     const technicians = await this.userRepository.find({
       where: { id: In(assigmentsTechnical.assigmentsTechnical) },
     });
-    switch (ticket.status) {
-      case TicketStatus.ON_SITE:
-        ticket.attentionType = TicketAttentionType.EN_SITIO;
-        break;
-      case TicketStatus.IN_REMOTE:
-        ticket.attentionType = TicketAttentionType.REMOTA;
-        break;
-      default:
-        break;
+
+    if (ticket.status === TicketStatus.ON_SITE) {
+      ticket.attentionType = TicketAttentionType.EN_SITIO;
+    } else if (ticket.status === TicketStatus.IN_REMOTE) {
+      ticket.attentionType = TicketAttentionType.REMOTA;
+    } else {
+      ticket.attentionType = null;
     }
 
     ticket.assigmentsTechnical = technicians;
@@ -357,15 +589,12 @@ export class TicketService {
       throw new HttpException('Tecnicos no encontrados', HttpStatus.NOT_FOUND);
     }
 
-    switch (ticket.status) {
-      case TicketStatus.ON_SITE:
-        ticket.attentionType = TicketAttentionType.EN_SITIO;
-        break;
-      case TicketStatus.IN_REMOTE:
-        ticket.attentionType = TicketAttentionType.REMOTA;
-        break;
-      default:
-        break;
+    if (ticket.status === TicketStatus.ON_SITE) {
+      ticket.attentionType = TicketAttentionType.EN_SITIO;
+    } else if (ticket.status === TicketStatus.IN_REMOTE) {
+      ticket.attentionType = TicketAttentionType.REMOTA;
+    } else {
+      ticket.attentionType = null;
     }
 
     ticket.assigmentsTechnical = technicians;

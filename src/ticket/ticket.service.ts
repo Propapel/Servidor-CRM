@@ -24,6 +24,7 @@ import { TicketAttentionType } from './enum/ticket_attention_type';
 import { Observable, Subject } from 'rxjs';
 import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
 @Injectable()
 export class TicketService {
   /*
@@ -63,19 +64,141 @@ export class TicketService {
     private mailService: MailService,
     @InjectRepository(TicketComment)
     private readonly ticketCommentRepository: Repository<TicketComment>,
+    @InjectRepository(TypeOfReportEntity)
+    private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
   ) {}
+
+  async createTicketNewWithFiles(
+    files: Express.Multer.File[],
+    createTicketDto: CreateTicketDto,
+  ) {
+     const user = await this.userRepository.findOne({
+      where: { id: createTicketDto.userCreated },
+      relations: ['sucursales'],
+    });
+    if (!user)
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+
+    // 2. Buscar cliente
+    const client = await this.clientRepository.findOne({
+      where: { id: createTicketDto.clientId },
+      relations: ['user'],
+    });
+    if (!client)
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+
+    // 3. Buscar equipo (si existe)
+    let equipo: Itequipment | null = null;
+    if (createTicketDto.itequipId) {
+      equipo = await this.itequipRepository.findOneBy({
+        id: createTicketDto.itequipId,
+      });
+    }
+    let typeOfReportEntity: TypeOfReportEntity | null = null;
+
+    if (createTicketDto.typeOfReportId){
+      typeOfReportEntity = await this.typeOfReportRepository.findOne({
+      where: { id: createTicketDto.typeOfReportId },
+    }); 
+    }
+
+    const lastTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.ticketConsecutive)', 'max')
+      .where('ticket.sucursalId = :sucursalId', {
+        sucursalId: user.sucursales[0].id,
+      })
+      .getRawOne<{ max: number }>();
+
+    const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
+
+    // 5. Procesar archivos
+    const newListFiles: string[] = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const attachment = files[i];
+        const pathFile = `file_report_ticket${createTicketDto.clientId}_${Date.now()}`;
+        const fileUrl = await storage.uploadFromFile(
+          attachment,
+          pathFile,
+          attachment.mimetype,
+        );
+        if (fileUrl) newListFiles.push(fileUrl);
+      }
+    }
+
+    // 6. Crear ticket con ID manual
+    const ticket = this.ticketRepository.create({
+      ticketNumber: `${user.sucursales[0].abbreviation}-${ticketConsecutive}`,
+      ticketConsecutive,
+      createdBy: user,
+      statusToken: uuidv4(),
+      nameCommercial: createTicketDto.nameCommercial,
+      nameReported: createTicketDto.nameReported,
+      apartamentReport: createTicketDto.apartamentReport,
+      reasonReport: createTicketDto.reasonReport,
+      location: createTicketDto.location,
+      files: newListFiles,
+      typeOfReportEntity: typeOfReportEntity?? null,
+      sucursal: user.sucursales[0], // Asignar sucursal del usuario
+      phoneReport: createTicketDto.phoneReport,
+      emailReport: createTicketDto.emailReport,
+      status: createTicketDto.status,
+      typeOfReport: createTicketDto.typeOfReport,
+      cliente: client,
+      equipo: equipo ?? null,
+    });
+
+    const savedTicket = await this.ticketRepository.save(ticket);
+
+    // 7. Crear registro en historial
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.CREATED,
+      ticket: savedTicket,
+    });
+    await this.ticketUpdateRepository.save(updateReport);
+
+    // 8. Enviar correos (opcional)
+    await this.mailService.sendEmailCreatedReport(
+      user.name,
+      savedTicket.ticketNumber,
+      user.email,
+      savedTicket.createdAt.toLocaleDateString(),
+      savedTicket.location,
+      savedTicket.reasonReport,
+    );
+    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
+      await this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported,
+        savedTicket.emailReport,
+        savedTicket.ticketNumber,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.statusToken,
+      );
+    }
+
+    // await this.emitTickets(user.sucursales[0].id);
+
+    // 9. Retornar ticket con relaciones
+    return this.ticketRepository.findOne({
+      where: { id: savedTicket.id },
+      relations: ['updates', 'createdBy', 'cliente', 'equipo'],
+    });
+  }
 
   async createTicketPlaza(
     files: Express.Multer.File[],
     createTicketDtoPlaza: CreateTicketPlazaDto,
   ) {
-
-    console.log('Datos recibidos en createTicketPlaza: %o', createTicketDtoPlaza);
+    console.log(
+      'Datos recibidos en createTicketPlaza: %o',
+      createTicketDtoPlaza,
+    );
     const sucursal = await this.sucursalRepository.findOne({
       where: {
         id: createTicketDtoPlaza.plazaId,
-      }
-    })
+      },
+    });
     console.log('Sucursal encontrada: %o', sucursal);
 
     const user = await this.userRepository.findOne({
@@ -85,7 +208,13 @@ export class TicketService {
     if (!user)
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
 
-  
+     let typeOfReportEntity: TypeOfReportEntity | null = null;
+
+    if (createTicketDtoPlaza.typeOfReportId){
+      typeOfReportEntity = await this.typeOfReportRepository.findOne({
+      where: { id: createTicketDtoPlaza.typeOfReportId },
+    }); 
+    }
 
     // 2. Buscar cliente
     const client = await this.clientRepository.findOne({
@@ -140,6 +269,7 @@ export class TicketService {
       reasonReport: createTicketDtoPlaza.reasonReport,
       location: createTicketDtoPlaza.location,
       files: newListFiles,
+      typeOfReportEntity: typeOfReportEntity?? null,
       sucursal: sucursal, // Asignar sucursal del usuario
       phoneReport: createTicketDtoPlaza.phoneReport,
       emailReport: createTicketDtoPlaza.emailReport,
@@ -423,6 +553,7 @@ export class TicketService {
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
       .orderBy('ticket.createdAt', 'DESC')
       .getMany();
@@ -438,6 +569,7 @@ export class TicketService {
       .leftJoinAndSelect('ticket.sucursal', 'sucursal')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
       .andWhere('sucursal.id = :branchId', { branchId })
@@ -453,6 +585,7 @@ export class TicketService {
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.id = :id', { id })
@@ -466,6 +599,7 @@ export class TicketService {
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')

@@ -9,6 +9,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  JoinColumn,
 } from 'typeorm';
 import { User } from 'src/users/user.entity';
 import { TicketStatus } from '../enum/ticiket_report_status';
@@ -20,6 +21,7 @@ import { Client } from 'src/clients/entities/client.entity';
 import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 import { TicketAttentionType } from '../enum/ticket_attention_type';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
 
 @Entity('ticket')
 export class Ticket {
@@ -132,7 +134,7 @@ export class Ticket {
   })
   priority: TicketPriority;
 
- @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true })
   reasonPause?: string;
 
   @Column({
@@ -140,6 +142,13 @@ export class Ticket {
     enum: TypeOfReport,
   })
   typeOfReport: TypeOfReport;
+
+  @ManyToOne(() => TypeOfReportEntity, (type) => type.tickets, {
+    nullable: true, // Un ticket siempre debe tener un tipo
+    eager: true, // Carga el 'ReportType' automáticamente al buscar un Ticket
+  })
+  @JoinColumn({ name: 'report_type_id' })
+  typeOfReportEntity: TypeOfReportEntity;
 
   @OneToMany(() => TicketUpdate, (update) => update.ticket, { cascade: true })
   updates: TicketUpdate[];

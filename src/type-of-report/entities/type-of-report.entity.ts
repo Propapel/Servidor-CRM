@@ -1,28 +1,33 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Ticket } from 'src/ticket/entities/ticket.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('type_of_report')
-export class TypeOfReport {
+export class TypeOfReportEntity {
   @PrimaryGeneratedColumn()
-  id: number;
+  id: number; // <-- ID Numérico (Ej: 1)
+
+  @Column({ length: 50, nullable: true }) // <-- ¡COLUMNA PUENTE!
+  migrationCode: string; // <-- Guardará 'FAILURE', 'REPLACEMENT', etc.
 
   @Column()
-  name: string;
+  name: string; // <-- 'Falla de Equipo'
 
   @Column({ nullable: true })
   description: string;
 
-  // Solo se guarda el id de la sucursal (sin relación)
+  // ... (el resto de tus columnas: sucursalId, color, icon, etc.)
   @Column({ nullable: true })
   sucursalId: number;
 
-  // Nuevo: color asociado al tipo de reporte (ej: #FF0000, blue, etc.)
   @Column({ nullable: true, length: 20 })
   color: string;
 
-  // Nuevo: icono asociado (puedes guardar nombre de ícono, path o URL)
   @Column({ nullable: true })
   icon: string;
 
+  @OneToMany(() => Ticket, (ticket) => ticket.typeOfReportEntity) // <-- ¡CORRECTO!
+  tickets: Ticket[];
+  // ... (createdAt, updatedAt)
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 

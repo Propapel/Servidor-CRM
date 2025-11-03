@@ -18,4 +18,5 @@ export class CreateTicketPlazaDto {
   typeOfReport?: TypeOfReport;
   clientId: number;
   itequipId: number;
+  typeOfReportId?: number;
 }

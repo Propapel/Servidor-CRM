@@ -18,4 +18,5 @@ export class CreateTicketDto {
   typeOfReport?: TypeOfReport;
   clientId: number;
   itequipId: number;
+  typeOfReportId?: number;
 }

@@ -10,10 +10,11 @@ import { Client } from 'src/clients/entities/client.entity';
 import { MailService } from 'src/auth/service/MailService';
 import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
 
 @Module({
    imports : [
-      TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client, TicketComment, Sucursales]),
+      TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client, TicketComment, Sucursales, TypeOfReportEntity]),
     ],
   controllers: [TicketController],
   providers: [TicketService, MailService],

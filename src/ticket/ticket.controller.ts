@@ -37,6 +37,22 @@ import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  @Post('createNewTicketWithFiles')
+  @UseInterceptors(FilesInterceptor('files'))
+  async createTicketNewWithFiles(
+    @Body('createTicketDto') createTicketDtoStr: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    let createTicketDto: CreateTicketDto;
+    try {
+      createTicketDto = JSON.parse(createTicketDtoStr);
+    } catch (error) {
+      throw new BadRequestException('Invalid CreateTicketDto format');
+    }
+
+    return this.ticketService.createTicketNewWithFiles(files, createTicketDto);
+  }
+
   @Post('closeTicketWithPdf/:id')
   @UseInterceptors(FileInterceptor('file'))
   async closeTicketPDF(

@@ -1,4 +1,5 @@
 import { Department } from "src/departments/entities/department.entity";
+import { EquipmentReplacement } from "src/equipment-replacement/entities/equipment-replacement.entity";
 import { LicenseAssignment } from "src/license-assignment/entities/license-assignment.entity";
 import { Ticket } from "src/ticket/entities/ticket.entity";
 import { User } from "src/users/user.entity";
@@ -35,4 +36,8 @@ export class Client {
     onDelete: 'SET NULL', // Si se borra el usuario, no borra al cliente, solo pone null
   })
   user?: User;
+
+   @OneToMany(() => EquipmentReplacement, (equipmentReplacements) => equipmentReplacements.client)
+  equipmentReplacements: EquipmentReplacement[];
+
 }

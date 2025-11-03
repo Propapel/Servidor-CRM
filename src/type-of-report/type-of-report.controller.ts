@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { TypeOfReportService } from './type-of-report.service';
 import { CreateTypeOfReportDto } from './dto/create-type-of-report.dto';
 import { UpdateTypeOfReportDto } from './dto/update-type-of-report.dto';
@@ -12,6 +21,11 @@ export class TypeOfReportController {
     return this.typeOfReportService.create(createTypeOfReportDto);
   }
 
+  @Get('byBranch/:id')
+  findByBranch(@Param('id', ParseIntPipe) id: number) {
+    return this.typeOfReportService.findAllByBranch(+id);
+  }
+
   @Get()
   findAll() {
     return this.typeOfReportService.findAll();
@@ -23,7 +37,10 @@ export class TypeOfReportController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTypeOfReportDto: UpdateTypeOfReportDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateTypeOfReportDto: UpdateTypeOfReportDto,
+  ) {
     return this.typeOfReportService.update(+id, updateTypeOfReportDto);
   }
 

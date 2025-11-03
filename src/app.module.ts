@@ -47,6 +47,7 @@ import { ContadorModule } from './contador/contador.module';
 import { FacturacionRentaModule } from './facturacion-renta/facturacion-renta.module';
 import { TicketStatusModule } from './ticket-status/ticket-status.module';
 import { TypeOfReportModule } from './type-of-report/type-of-report.module';
+import { EquipmentReplacementModule } from './equipment-replacement/equipment-replacement.module';
 
 @Module({
   imports: [
@@ -101,7 +102,8 @@ import { TypeOfReportModule } from './type-of-report/type-of-report.module';
     ContadorModule,
     FacturacionRentaModule,
     TicketStatusModule,
-    TypeOfReportModule
+    TypeOfReportModule,
+    EquipmentReplacementModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

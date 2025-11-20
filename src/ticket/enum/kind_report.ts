@@ -12,4 +12,14 @@ export enum TypeOfReport {
   APOYO_CDMX = 'APOYO_CDMX',
   APOYO_CANCUN = 'APOYO_CANCUN',
   APOYO_MTY = "APOYO_MTY",
+    // 🔥 NUEVOS TIPOS (los que pediste)
+  COMPUTER_REPAIR = 'COMPUTER_REPAIR',         // Reparación de cómputo
+  MULTIFUNCTION_REPAIR = 'MULTIFUNCTION_REPAIR', // Reparación de multifuncional
+  REFURBISHED_PART = 'REFURBISHED_PART',       // Reacondicionado de refacción
+  MESSAGING = 'MESSAGING',                     // Mensajería
+  NUBEPRINT_INSTALLATION = 'NUBEPRINT_INSTALLATION', // Instalación de Nubeprint
+  ON_SITE_READINGS = 'ON_SITE_READINGS',       // Lecturas en sitio
+  NUBEPRINT_READINGS = 'NUBEPRINT_READINGS',   // Lecturas Nubeprint
+  PROJECT_SURVEY = 'PROJECT_SURVEY',           // Levantamiento de proyecto
+  UNREGISTERED_CLIENT = 'UNREGISTERED_CLIENT', // Cliente no registrado
 }

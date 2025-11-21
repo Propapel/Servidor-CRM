@@ -159,6 +159,16 @@ export class Ticket {
   @Column({ nullable: true })
   statusToken?: string;
 
+  @Column({ 
+    default: false
+   })
+  isQualifiedTheDifficulty: boolean;
+
+  @Column({ 
+    default: 1
+   })
+  difficultyRating: number;
+
   @OneToMany(() => TicketComment, (comment) => comment.ticket, {
     cascade: true,
   })

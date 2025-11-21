@@ -25,6 +25,7 @@ import { Observable, Subject } from 'rxjs';
 import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
+import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
 @Injectable()
 export class TicketService {
   /*
@@ -68,6 +69,22 @@ export class TicketService {
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
   ) {}
 
+  async qualifyTicket(ticketId: number, rateDifficultyTicketDto: RateDifficultyTicketDto) {
+
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId },
+    });
+    if (!ticket) {
+      throw new HttpException(ERROR_FOUND_TICKET, HttpStatus.NOT_FOUND);
+    }
+    if (ticket.isQualifiedTheDifficulty) {
+      throw new HttpException(ERROR_TICKET_QUALIFIED, HttpStatus.BAD_REQUEST);
+    }
+    ticket.difficultyRating = rateDifficultyTicketDto.difficultyRating;
+    ticket.isQualifiedTheDifficulty = true;
+    return this.ticketRepository.save(ticket);
+  }
+  
   async createTicketNewWithFiles(
     files: Express.Multer.File[],
     createTicketDto: CreateTicketDto,

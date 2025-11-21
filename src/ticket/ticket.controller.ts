@@ -32,10 +32,19 @@ import { map, Observable, retry } from 'rxjs';
 import { Ticket } from './entities/ticket.entity';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
+import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
 
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
+
+  @Post('rateDifficulty/:id')
+  async qualifyDifficultyTicket(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() rateDifficultyTicketDto: RateDifficultyTicketDto,
+  ) {
+    return this.ticketService.qualifyTicket(id, rateDifficultyTicketDto);
+  }
 
   @Post('createNewTicketWithFiles')
   @UseInterceptors(FilesInterceptor('files'))

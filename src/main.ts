@@ -3,9 +3,14 @@ process.env.TZ = 'UTC';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as bodyParser from 'body-parser'; 
+import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, x-api-key',
+  });
 
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
   // Aumentar el límite de tamaño del cuerpo de la solicitud

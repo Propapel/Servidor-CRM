@@ -52,33 +52,48 @@ export class TicketService {
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
   ) {}
 
-  async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, request: Request) {
+async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, request: Request) {
+  const { limit = 10, page = 1 } = paginationDto;
+  const skip = (page - 1) * limit;
 
-    console.log('Pagination DTO:', paginationDto);
+  const queryBuilder = this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.isDelete = :isDelete', { isDelete: false })
+    .andWhere('sucursal.id = :branchId', { branchId });
 
-    const { limit = 10, page = 1 } = paginationDto;
-    const skip = (page - 1) * limit;
+  // 1. Creamos una columna oculta para el ordenamiento
+  queryBuilder.addSelect(
+    `(CASE 
+        WHEN ticket.status = '${TicketStatus.SIN_ASIGNAR}' THEN 1 
+        WHEN ticket.status = '${TicketStatus.RESUELTO}' THEN 3 
+        ELSE 2 
+      END)`, 
+    'status_priority' // Este es el alias de la columna virtual
+  );
 
-    const [tickets, total] = await this.ticketRepository
-      .createQueryBuilder('ticket')
-      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
-      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-      .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .leftJoinAndSelect('ticket.cliente', 'cliente')
-      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-      .leftJoinAndSelect('ticket.equipo', 'equipo')
-      .where('ticket.isDelete = :isDelete', { isDelete: false })
-      .andWhere('sucursal.id = :branchId', { branchId })
-      .orderBy('ticket.createdAt', 'DESC')
-      .take(limit)
-      .skip(skip)
-      .getManyAndCount();
+  // 2. Ordenamos usando el alias que definimos arriba
+  // Nota: Usamos 'ASC' para que el 1 (SIN_ASIGNAR) sea el primero
+  queryBuilder.orderBy('status_priority', 'ASC');
+  
+  // 3. Orden secundario por fecha (opcional pero recomendado)
+  queryBuilder.addOrderBy('ticket.createdAt', 'DESC');
 
-    return this.createPagedResponse(tickets, total, +page, +limit, request);
-  }
+  const [tickets, total] = await queryBuilder
+    .take(limit)
+    .skip(skip)
+    .getManyAndCount();
+
+  return this.createPagedResponse(tickets, total, +page, +limit, request);
+}
 
    private createPagedResponse<T>(
     data: T[],

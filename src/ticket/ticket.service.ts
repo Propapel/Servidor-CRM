@@ -26,28 +26,11 @@ import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
 import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
+import { PagedResponse } from './dto/paged-response.interface';
+import { Request } from 'express';
+import { PaginationDto } from './dto/pagination.dto';
 @Injectable()
 export class TicketService {
-  /*
-  private ticketStreams: Map<number, Subject<Ticket[]>> = new Map();
-
-    // Obtener flujo SSE para una sucursal
-  getTicketStream(branchId: number): Observable<Ticket[]> {
-    if (!this.ticketStreams.has(branchId)) {
-      this.ticketStreams.set(branchId, new Subject<Ticket[]>());
-      // Emitir tickets iniciales
-      this.emitTickets(branchId);
-    }
-    return this.ticketStreams.get(branchId).asObservable();
-  }
-
-  // Método que obtiene los tickets de la DB y emite
-  async emitTickets(branchId: number) {
-    const tickets = await this.findAllByBranch(branchId);
-    const subject = this.ticketStreams.get(branchId);
-    subject?.next(tickets);
-  }
- */
 
   constructor(
     @InjectRepository(Sucursales)
@@ -68,6 +51,70 @@ export class TicketService {
     @InjectRepository(TypeOfReportEntity)
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
   ) {}
+
+  async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, request: Request) {
+
+    console.log('Pagination DTO:', paginationDto);
+
+    const { limit = 10, page = 1 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const [tickets, total] = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('sucursal.id = :branchId', { branchId })
+      .orderBy('ticket.createdAt', 'DESC')
+      .take(limit)
+      .skip(skip)
+      .getManyAndCount();
+
+    return this.createPagedResponse(tickets, total, +page, +limit, request);
+  }
+
+   private createPagedResponse<T>(
+    data: T[],
+    totalItems: number,
+    page: number,
+    limit: number,
+    request: Request, // Necesitamos el request para saber la URL actual
+  ): PagedResponse<T> {
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    // Construir URL base (ej: http://localhost:3000/ticket/allTickets)
+    const protocol = request.protocol;
+    const host = request.get('host');
+    const baseUrl = `${protocol}://${host}${request.path}`;
+
+    // Lógica para next/prev
+    const next =
+      page < totalPages
+        ? `${baseUrl}?page=${page + 1}&limit=${limit}`
+        : null;
+
+    const prev =
+      page > 1
+        ? `${baseUrl}?page=${page - 1}&limit=${limit}`
+        : null;
+
+    return {
+      info: {
+        count: totalItems,
+        pages: totalPages,
+        next: next,
+        prev: prev,
+      },
+      results: data,
+    };
+  }
 
   async qualifyTicket(ticketId: number, rateDifficultyTicketDto: RateDifficultyTicketDto) {
 
@@ -327,11 +374,20 @@ export class TicketService {
     // await this.emitTickets(user.sucursales[0].id);
 
     // 9. Retornar ticket con relaciones
-    return this.ticketRepository.findOne({
-      where: { id: savedTicket.id },
-      relations: ['updates', 'createdBy', 'cliente', 'equipo'],
-    });
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id: savedTicket.id })
+      .getOne();
   }
+  
   async createTicketWithFiles(
     files: Express.Multer.File[],
     createTicketDto: CreateTicketDto,

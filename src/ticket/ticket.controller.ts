@@ -16,6 +16,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -23,7 +24,7 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AsignTechnicalDto } from './dto/asign-technical.dto';
 import { CloseTicketDto } from './dto/close_ticket.dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
 import { User } from 'src/users/user.entity';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
@@ -33,10 +34,25 @@ import { Ticket } from './entities/ticket.entity';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
+import { PaginationDto } from './dto/pagination.dto';
 
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
+@Get('byBranchPaging/:id')
+findByBranchPagging(
+  @Param('id', ParseIntPipe) id: number,
+  @Query() paginationDto: PaginationDto,
+  @Req() request: Request,
+) {
+  // AGREGA ESTOS LOGS
+  console.log('--- NUEVA PETICIÓN RECIBIDA ---');
+  console.log('ID Sucursal:', id);
+  console.log('Query Params:', paginationDto);
+  console.log('IP del Cliente:', request.ip);
+  
+  return this.ticketService.findAllByBranchPagging(+id, paginationDto, request);
+}
 
   @Post('rateDifficulty/:id')
   async qualifyDifficultyTicket(
@@ -340,7 +356,6 @@ export class TicketController {
    * @param id The ID of the ticket to be retrieved
    * @returns The ticket with the specified ID
    */
-  @UseGuards(AccessTokenGuard)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.ticketService.findOne(+id);

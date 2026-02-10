@@ -3,7 +3,7 @@ import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
 import { User } from 'src/users/user.entity';
-import { In, Like, Not, Repository } from 'typeorm';
+import { Brackets, In, Like, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity';
 import { TicketAction } from 'src/ticket-updated/enum/ticket_action_enum';
@@ -31,7 +31,6 @@ import { Request } from 'express';
 import { PaginationDto } from './dto/pagination.dto';
 @Injectable()
 export class TicketService {
-
   constructor(
     @InjectRepository(Sucursales)
     private sucursalRepository: Repository<Sucursales>,
@@ -52,11 +51,10 @@ export class TicketService {
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
   ) {}
 
-async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, request: Request) {
-  const { limit = 10, page = 1 } = paginationDto;
-  const skip = (page - 1) * limit;
+  // ticket.service.ts
 
-  const queryBuilder = this.ticketRepository
+  async searchByText(branchId: number, term: string) {
+  return await this.ticketRepository
     .createQueryBuilder('ticket')
     .leftJoinAndSelect('ticket.createdBy', 'createdBy')
     .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
@@ -68,34 +66,72 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
     .leftJoinAndSelect('ticket.equipo', 'equipo')
     .where('ticket.isDelete = :isDelete', { isDelete: false })
-    .andWhere('sucursal.id = :branchId', { branchId });
+    .andWhere(
+      new Brackets((qb) => {
+        qb.where('ticket.reasonReport LIKE :term', { term: `%${term}%` })
+          .orWhere('ticket.nameCommercial LIKE :term', { term: `%${term}%` })
+          .orWhere('ticket.ticketNumber LIKE :term', { term: `%${term}%` })
+          .orWhere('ticket.nameReported LIKE :term', { term: `%${term}%` })
+          
+          // CORRECCIÓN: Usar los alias definidos en los Joins
+          .orWhere('comments.content LIKE :term', { term: `%${term}%` }) 
+          .orWhere('commentAuthor.name LIKE :term', { term: `%${term}%` })
+          .orWhere('cliente.razonSocial LIKE :term', { term: `%${term}%` });
+      }),
+    )
+    .andWhere('sucursal.id = :branchId', { branchId })
+    .orderBy('ticket.createdAt', 'DESC')
+    .take(20)
+    .getMany();
+}
+  async findAllByBranchPagging(
+    branchId: number,
+    paginationDto: PaginationDto,
+    request: Request,
+  ) {
+    const { limit = 10, page = 1 } = paginationDto;
+    const skip = (page - 1) * limit;
 
-  // 1. Creamos una columna oculta para el ordenamiento
-  queryBuilder.addSelect(
-    `(CASE 
+    const queryBuilder = this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('sucursal.id = :branchId', { branchId });
+
+    // 1. Creamos una columna oculta para el ordenamiento
+    queryBuilder.addSelect(
+      `(CASE 
         WHEN ticket.status = '${TicketStatus.SIN_ASIGNAR}' THEN 1 
         WHEN ticket.status = '${TicketStatus.RESUELTO}' THEN 3 
         ELSE 2 
-      END)`, 
-    'status_priority' // Este es el alias de la columna virtual
-  );
+      END)`,
+      'status_priority', // Este es el alias de la columna virtual
+    );
 
-  // 2. Ordenamos usando el alias que definimos arriba
-  // Nota: Usamos 'ASC' para que el 1 (SIN_ASIGNAR) sea el primero
-  queryBuilder.orderBy('status_priority', 'ASC');
-  
-  // 3. Orden secundario por fecha (opcional pero recomendado)
-  queryBuilder.addOrderBy('ticket.createdAt', 'DESC');
+    // 2. Ordenamos usando el alias que definimos arriba
+    // Nota: Usamos 'ASC' para que el 1 (SIN_ASIGNAR) sea el primero
+    queryBuilder.orderBy('status_priority', 'ASC');
 
-  const [tickets, total] = await queryBuilder
-    .take(limit)
-    .skip(skip)
-    .getManyAndCount();
+    // 3. Orden secundario por fecha (opcional pero recomendado)
+    queryBuilder.addOrderBy('ticket.createdAt', 'DESC');
 
-  return this.createPagedResponse(tickets, total, +page, +limit, request);
-}
+    const [tickets, total] = await queryBuilder
+      .take(limit)
+      .skip(skip)
+      .getManyAndCount();
 
-   private createPagedResponse<T>(
+    return this.createPagedResponse(tickets, total, +page, +limit, request);
+  }
+
+  private createPagedResponse<T>(
     data: T[],
     totalItems: number,
     page: number,
@@ -103,7 +139,7 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     request: Request, // Necesitamos el request para saber la URL actual
   ): PagedResponse<T> {
     const totalPages = Math.ceil(totalItems / limit);
-    
+
     // Construir URL base (ej: http://localhost:3000/ticket/allTickets)
     const protocol = request.protocol;
     const host = request.get('host');
@@ -111,14 +147,9 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
 
     // Lógica para next/prev
     const next =
-      page < totalPages
-        ? `${baseUrl}?page=${page + 1}&limit=${limit}`
-        : null;
+      page < totalPages ? `${baseUrl}?page=${page + 1}&limit=${limit}` : null;
 
-    const prev =
-      page > 1
-        ? `${baseUrl}?page=${page - 1}&limit=${limit}`
-        : null;
+    const prev = page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null;
 
     return {
       info: {
@@ -131,8 +162,10 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     };
   }
 
-  async qualifyTicket(ticketId: number, rateDifficultyTicketDto: RateDifficultyTicketDto) {
-
+  async qualifyTicket(
+    ticketId: number,
+    rateDifficultyTicketDto: RateDifficultyTicketDto,
+  ) {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
     });
@@ -146,12 +179,12 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     ticket.isQualifiedTheDifficulty = true;
     return this.ticketRepository.save(ticket);
   }
-  
+
   async createTicketNewWithFiles(
     files: Express.Multer.File[],
     createTicketDto: CreateTicketDto,
   ) {
-     const user = await this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: { id: createTicketDto.userCreated },
       relations: ['sucursales'],
     });
@@ -175,10 +208,10 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     }
     let typeOfReportEntity: TypeOfReportEntity | null = null;
 
-    if (createTicketDto.typeOfReportId){
+    if (createTicketDto.typeOfReportId) {
       typeOfReportEntity = await this.typeOfReportRepository.findOne({
-      where: { id: createTicketDto.typeOfReportId },
-    }); 
+        where: { id: createTicketDto.typeOfReportId },
+      });
     }
 
     const lastTicket = await this.ticketRepository
@@ -218,7 +251,7 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
-      typeOfReportEntity: typeOfReportEntity?? null,
+      typeOfReportEntity: typeOfReportEntity ?? null,
       sucursal: user.sucursales[0], // Asignar sucursal del usuario
       phoneReport: createTicketDto.phoneReport,
       emailReport: createTicketDto.emailReport,
@@ -287,12 +320,12 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     if (!user)
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
 
-     let typeOfReportEntity: TypeOfReportEntity | null = null;
+    let typeOfReportEntity: TypeOfReportEntity | null = null;
 
-    if (createTicketDtoPlaza.typeOfReportId){
+    if (createTicketDtoPlaza.typeOfReportId) {
       typeOfReportEntity = await this.typeOfReportRepository.findOne({
-      where: { id: createTicketDtoPlaza.typeOfReportId },
-    }); 
+        where: { id: createTicketDtoPlaza.typeOfReportId },
+      });
     }
 
     // 2. Buscar cliente
@@ -348,7 +381,7 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
       reasonReport: createTicketDtoPlaza.reasonReport,
       location: createTicketDtoPlaza.location,
       files: newListFiles,
-      typeOfReportEntity: typeOfReportEntity?? null,
+      typeOfReportEntity: typeOfReportEntity ?? null,
       sucursal: sucursal, // Asignar sucursal del usuario
       phoneReport: createTicketDtoPlaza.phoneReport,
       emailReport: createTicketDtoPlaza.emailReport,
@@ -367,25 +400,6 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
     });
     await this.ticketUpdateRepository.save(updateReport);
 
-    // 8. Enviar correos (opcional)
-    await this.mailService.sendEmailCreatedReport(
-      user.name,
-      savedTicket.ticketNumber,
-      user.email,
-      savedTicket.createdAt.toLocaleDateString(),
-      savedTicket.location,
-      savedTicket.reasonReport,
-    );
-    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
-      await this.mailService.sendEmailToClientStatusTicket(
-        savedTicket.nameReported,
-        savedTicket.emailReport,
-        savedTicket.ticketNumber,
-        savedTicket.createdAt.toLocaleDateString(),
-        savedTicket.statusToken,
-      );
-    }
-
     // await this.emitTickets(user.sucursales[0].id);
 
     // 9. Retornar ticket con relaciones
@@ -402,7 +416,7 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
       .where('ticket.id = :id', { id: savedTicket.id })
       .getOne();
   }
-  
+
   async createTicketWithFiles(
     files: Express.Multer.File[],
     createTicketDto: CreateTicketDto,
@@ -827,19 +841,21 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
       action: TicketAction.ASSIGNED,
       ticket: updatedTicket,
     });
-    /*
 
-    await this.mailService.sendEmailTechnicalAssignReport(
-      ticket.createdBy.name,
-      ticket.id,
-      ticket.createdBy.email,
-      ticket.createdAt.toLocaleDateString(),
-      ticket.location,
-      ticket.reasonReport,
-      technicians.map((tech) => tech.name).join(', '),
-    );
-*/
     await this.ticketUpdateRepository.save(updateReport);
+     return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.id = :ticketId', { ticketId })
+    .getOne();
   }
 
   async onPauseTicket(ticketId: number, reasonPause: string) {
@@ -863,22 +879,40 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
   }
 
   async updateStatus(ticketId: number, statusTicket: TicketStatus) {
-    const ticket = await this.ticketRepository.findOne({
-      where: { id: ticketId },
-      relations: ['createdBy', 'assigmentsTechnical'],
-    });
-    if (!ticket) {
-      throw new Error('Ticket not found');
-    }
+  // Convertimos a número para asegurar que la búsqueda sea correcta
+  const id = Number(ticketId);
+  
+  console.log(`Buscando ticket con ID: ${id}`); // Log de depuración
 
-    ticket.status = statusTicket;
+  const ticket = await this.ticketRepository.findOne({
+    where: { id: id },
+  });
 
-    await this.ticketRepository.save(ticket);
+  if (!ticket) {
+    // Si el error persiste, el ID que ves en el console.log no existe en tu DB
+    throw new Error(`Ticket con ID ${id} no encontrado en la base de datos`);
   }
+
+  ticket.status = statusTicket;
+  await this.ticketRepository.save(ticket);
+
+  return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.id = :id', { id })
+    .getOne();
+}
   async closeTicketWithFile(file: Express.Multer.File, ticketId: number) {
     const ticket = await this.ticketRepository.findOne({
-      where: { id: ticketId },
-      relations: ['createdBy', 'assigmentsTechnical'],
+      where: { id: ticketId }
     });
 
     if (!ticket) {
@@ -920,6 +954,7 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
 
     await this.ticketUpdateRepository.save(updateReport);
 
+    /*
     // Calcular tiempo total de resolución (días, horas, minutos, segundos)
     const fechaSolicitud = ticket.createdAt;
     const fechaResolucion = ticket.resolvedAt;
@@ -941,6 +976,20 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
       tiempoLaboral,
       ticket.ratingToken,
     );
+*/
+    return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.id = :ticketId', { ticketId })
+    .getOne();
   }
 
   async closeTicket(ticketId: number, closeTicketDto: CloseTicketDto) {
@@ -1769,52 +1818,77 @@ async findAllByBranchPagging(branchId: number, paginationDto: PaginationDto, req
    * @returns
    */
   async addComment(addCommentTicketDto: AddCommentTicketDto) {
+    console.log("ENTRE ")
+    const { ticketId, userId, comment: content, imageUrl: base64Image, isInternal } = addCommentTicketDto;
+
+    // 1. Validar existencia del Ticket
     const ticketFound = await this.ticketRepository.findOne({
-      where: {
-        id: addCommentTicketDto.ticketId,
-      },
+      where: { id: ticketId },
     });
 
     if (!ticketFound) {
       throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
     }
 
+    // 2. Validar existencia del Usuario
     const user = await this.userRepository.findOne({
-      where: { id: addCommentTicketDto.userId },
+      where: { id: userId },
     });
 
     if (!user) {
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
     }
 
-    let imageUrl = '';
-    if (
-      addCommentTicketDto.imageUrl &&
-      addCommentTicketDto.imageUrl.trim() !== ''
-    ) {
-      const buffer = Buffer.from(addCommentTicketDto.imageUrl, 'base64');
-      const pathPdf = `image_comment_${addCommentTicketDto.userId}_Ticket${addCommentTicketDto.ticketId}_${Date.now()}`;
-      const imageResult = await storage.uploadFromBuffer(
-        buffer,
-        pathPdf,
-        'image/png',
-      );
+    // 3. Procesar Imagen (si existe)
+    let finalImageUrl = '';
+    if (base64Image && base64Image.trim() !== '') {
+      try {
+        const buffer = Buffer.from(base64Image, 'base64');
+        const fileName = `comment_img_${userId}_T${ticketId}_${Date.now()}.png`;
+        
+        // Asumiendo que storage es tu utilidad de Firebase/S3
+        const imageResult = await storage.uploadFromBuffer(
+          buffer,
+          fileName,
+          'image/png',
+        );
 
-      if (imageResult) {
-        imageUrl = imageResult; // Guarda la URL de la imagen
+        if (imageResult) {
+          finalImageUrl = imageResult;
+        }
+      } catch (error) {
+        console.error('Error al subir imagen de comentario:', error);
+        // Opcional: lanzar error o continuar sin imagen
       }
     }
 
-    const comment = this.ticketCommentRepository.create({
+    // 4. Crear y guardar el Comentario
+    const newComment = this.ticketCommentRepository.create({
       ticket: ticketFound,
       author: user,
-      content: addCommentTicketDto.comment,
-      imageUrl: imageUrl,
+      content: content,
+      imageUrl: finalImageUrl,
+      isInternal: isInternal
     });
 
-    await this.ticketCommentRepository.save(comment);
-  }
+    await this.ticketCommentRepository.save(newComment);
 
+    // 6. Retornar el Ticket actualizado con todas las relaciones
+     // 6. Retornar el Ticket actualizado con todas las relaciones
+     return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.id = :ticketId', { ticketId })
+    .getOne();
+}
   async sendPageService(id: number) {
     const ticketFound = await this.ticketRepository.findOne({
       where: {

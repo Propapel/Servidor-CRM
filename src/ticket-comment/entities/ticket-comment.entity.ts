@@ -21,5 +21,12 @@ export class TicketComment {
 
   @Column()
   imageUrl: string;
+
+  @Column(
+    {
+      default: true
+    }
+  )
+  isInternal: boolean;
 }
 

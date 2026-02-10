@@ -39,20 +39,31 @@ import { PaginationDto } from './dto/pagination.dto';
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
-@Get('byBranchPaging/:id')
-findByBranchPagging(
-  @Param('id', ParseIntPipe) id: number,
-  @Query() paginationDto: PaginationDto,
-  @Req() request: Request,
-) {
-  // AGREGA ESTOS LOGS
-  console.log('--- NUEVA PETICIÓN RECIBIDA ---');
-  console.log('ID Sucursal:', id);
-  console.log('Query Params:', paginationDto);
-  console.log('IP del Cliente:', request.ip);
-  
-  return this.ticketService.findAllByBranchPagging(+id, paginationDto, request);
-}
+
+  // ticket.controller.ts
+
+  @Get('search/find/:id')
+  searchTickets(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('term') term: string) {
+    if (!term)
+      throw new BadRequestException('El término de búsqueda es requerido');
+    console.log(`Buscando tickets con el término: ${term} en sucursal ID: ${id}`);
+    return this.ticketService.searchByText(+id,term);
+  }
+
+  @Get('byBranchPaging/:id')
+  findByBranchPagging(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() paginationDto: PaginationDto,
+    @Req() request: Request,
+  ) {
+    return this.ticketService.findAllByBranchPagging(
+      +id,
+      paginationDto,
+      request,
+    );
+  }
 
   @Post('rateDifficulty/:id')
   async qualifyDifficultyTicket(
@@ -89,7 +100,7 @@ findByBranchPagging(
     return this.ticketService.closeTicketWithFile(file, id);
   }
 
-   @Post('createTicketPlazaWithFiles')
+  @Post('createTicketPlazaWithFiles')
   @UseInterceptors(FilesInterceptor('files'))
   async createTicketPlazaWithFiles(
     @Body('createTicketDto') createTicketDtoPlaza: string,
@@ -104,7 +115,6 @@ findByBranchPagging(
 
     return this.ticketService.createTicketPlaza(files, createTicketDto);
   }
-
 
   @Post('createTicketWithFiles')
   @UseInterceptors(FilesInterceptor('files'))
@@ -185,6 +195,8 @@ findByBranchPagging(
   @UseGuards(AccessTokenGuard)
   @Post('addComment')
   addComment(@Body() addCommentTicketDto: AddCommentTicketDto) {
+    console.log('--- Nueva Petición ---');
+    console.log('Payload recibido:', addCommentTicketDto);
     return this.ticketService.addComment(addCommentTicketDto);
   }
 

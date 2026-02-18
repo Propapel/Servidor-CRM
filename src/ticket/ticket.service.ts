@@ -521,10 +521,20 @@ export class TicketService {
     // await this.emitTickets(user.sucursales[0].id);
 
     // 9. Retornar ticket con relaciones
-    return this.ticketRepository.findOne({
-      where: { id: savedTicket.id },
-      relations: ['updates', 'createdBy', 'cliente', 'equipo'],
-    });
+
+     return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .where('ticket.id = :id', { id: savedTicket.id })
+    .getOne();
   }
 
   async create(createTicketDto: CreateTicketDto) {

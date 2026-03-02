@@ -3,7 +3,9 @@ process.env.TZ = 'UTC';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { WsAdapter } from '@nestjs/platform-ws';
 import * as bodyParser from 'body-parser';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
@@ -13,10 +15,10 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
-  // Aumentar el límite de tamaño del cuerpo de la solicitud
-  app.use(bodyParser.json({ limit: '100mb' })); // Cambia '10mb' según sea necesario
+  app.use(bodyParser.json({ limit: '100mb' }));
   app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
-  // Use environment variable for the host, defaulting to 'localhost'
+  app.useWebSocketAdapter(new WsAdapter(app));
+
   const host = process.env.HOST || 'localhost';
   const port = process.env.PORT || 3002;
 

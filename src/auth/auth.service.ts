@@ -66,6 +66,7 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       permissions,
+      clients: userFound.clients,
       roles: userFound.roles,
       sucursales: userFound.sucursales[0],
       accessTokenExpirationTimestamp,
@@ -137,7 +138,7 @@ export class AuthService {
     const { email, password } = loginAuthDto;
     const user = await this.usersRepository.findOne({
       where: { email },
-      relations: ['roles', 'roles.permissions', 'permissions', 'sucursales'],
+      relations: ['roles', 'roles.permissions', 'permissions', 'sucursales', 'clients'],
     });
 
     if (!user || user.isDelete) {

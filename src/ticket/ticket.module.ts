@@ -11,12 +11,13 @@ import { MailService } from 'src/auth/service/MailService';
 import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
 import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
 import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
+import { SocketGateway } from 'src/socket/socket.gateway';
 
 @Module({
    imports : [
       TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client, TicketComment, Sucursales, TypeOfReportEntity]),
     ],
   controllers: [TicketController],
-  providers: [TicketService, MailService],
+  providers: [TicketService, MailService, SocketGateway],
 })
 export class TicketModule {}

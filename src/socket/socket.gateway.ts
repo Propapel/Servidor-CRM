@@ -1,247 +1,133 @@
 import {
-  ConnectedSocket,
-  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { CreateSocketDto } from './dto/create-socket.dto';
-import { Server, Socket } from 'socket.io';
-import { UpdateSocketDto } from './dto/update-socket.dto';
-import { MessageService } from 'src/message/message.service';
-import { CreateMessageDto } from 'src/message/dto/create-message.dto';
+import { Server, WebSocket } from 'ws';
 import { Logger } from '@nestjs/common';
+import { Ticket } from 'src/ticket/entities/ticket.entity';
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
-  transports: ['websocket'],
+  path: '/tickets',
 })
-export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayDisconnect<WebSocket> {
   @WebSocketServer() server: Server;
-
-  // Mapa para guardar socket.id => { userId, conversationId }
-  private readonly socketUserMap = new Map<
-    string,
-    { userId: number; conversationId: number }
-  >();
 
   private readonly logger = new Logger(SocketGateway.name);
 
-  constructor(private readonly messageService: MessageService) {}
-
-  handleDisconnect(client: Socket) {
-    console.log('Un usuario se ha desconectado de SOCKET.IO', client.id);
-    this.server.emit('driver_disconnected', { id_socket: client.id });
+  handleConnection(client: WebSocket) {
+    this.logger.log('Cliente conectado al WebSocket de tickets');
   }
 
-  handleConnection(client: Socket, ...args: any[]) {
-    console.log('Un usuario se ha conectado a SOCKET.IO', client.id);
+  handleDisconnect(client: WebSocket) {
+    this.logger.log('Cliente desconectado del WebSocket de tickets');
   }
 
-  @SubscribeMessage('user_typing')
-  handleUserTyping(
-    @MessageBody() data: any,
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log(`Usuario escribiendo: ${client.id}, data:`, data);
-
-    // Notificar a todos excepto al que está escribiendo
-    this.server.emit('user_typing', {
-      userId: data.userId,
-      typing: data.typing,
-      userWriting: data.userWriting,
-      customerId: data.customerId,
-    });
-  }
-
-  @SubscribeMessage('createNote')
-  handleNewNote(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
-    console.log(`Nota creada: ${client.id}, data:`, data);
-    this.server.emit('success_create', {
-      id: data.id,
-      content: data.content,
-      customerId: data.customerId,
-      name: data.name,
-      userId: data.userId,
-      image: data.image,
-    });
-  }
-
-  @SubscribeMessage('readingNotifications')
-  readingNotifications(
-    @MessageBody() data: any,
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log(`Notificaciones: ${client.id}, data:`, data);
-    this.server.emit('reading', { userId: data.userId });
-  }
-
-  @SubscribeMessage('sendMessage')
-  async handleMessage(
-    @MessageBody() rawData: any,
-    @ConnectedSocket() client: Socket,
-  ) {
-    // Parseo de datos
-    const data = Array.isArray(rawData)
-      ? rawData.find((item) => typeof item === 'object' && item !== null)
-      : rawData;
-
-    this.logger.log('📨 Mensaje recibido:', data);
-
-    const socketInfo = this.socketUserMap.get(client.id);
-    if (!socketInfo) {
-      this.logger.warn(`⚠️ Cliente ${client.id} no tiene info registrada`);
-      return;
-    }
-
-    const senderUserId = socketInfo.userId;
-    const conversationId = data.conversationId;
-
-    // Si alguien está en la conversación, marcar como leído automáticamente
-    const socketsInRoom = await this.server
-      .in(`conversation-${conversationId}`)
-      .fetchSockets();
-    const activeUserIds = socketsInRoom
-      .map((socket) => this.socketUserMap.get(socket.id)?.userId)
-      .filter((id): id is number => !!id && id !== senderUserId);
-
-    // Este valor sirve para cuando creas el mensaje (por ejemplo para mostrar "leído" instantáneo)
-    const isAnyoneViewing = activeUserIds.length > 0;
-    data.isRead = isAnyoneViewing;
-
-    // Crear el mensaje
-    const message = await this.messageService.create({
-      ...data,
-      userSenderId: senderUserId,
-    });
-
-    // Notificar por roles
-   
-
-      /*
-       const conversation =
-      await this.messageService.findConversationById(conversationId);
-    if (data.rolUser == 'Gerente' || data.rolUser == 'Gerente regional') {
-      this.server
-        .to(`notification-${conversation.ejecutivo.id}`)
-        .emit('Notification', message);
-    } else {
-      conversation.admins.forEach((admin) => {
-        this.server
-          .to(`notification-${admin.id}`)
-          .emit('Notification', message);
-      });
-    }
-    this.server.to(`conversation-${conversationId}`).emit('newMessage', {
-      conversationId,
-      message,
-    });
-  ]*/
-
-    this.server.emit('newMessage', {
-      conversationId,
-      message,
-    });
-
-    // 🔽 Marcar como leídos para todos los conectados menos el emisor
-    const markedUsers = new Set<number>();
-    for (const userId of activeUserIds) {
-      if (!markedUsers.has(userId)) {
-        const updatedMessages = await this.messageService.markMessagesAsRead(
-          conversationId,
-          userId,
-        );
-        this.server.to(`conversation-${conversationId}`).emit('messagesRead', {
-          conversationId,
-          userId,
-          messageIds: updatedMessages.map((m) => m.id),
-        });
-        markedUsers.add(userId);
+  private broadcast(data: object) {
+    const message = JSON.stringify(data);
+    this.server.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
       }
-    }
-  }
-
-  @SubscribeMessage('joinConversation')
-  async handleJoinRoom(
-    @MessageBody() data: { conversationId: number; userId: number },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const { conversationId, userId } = data;
-
-    // Unir al socket a la sala de conversación
-    client.join(`conversation-${conversationId}`);
-    this.socketUserMap.set(client.id, { userId, conversationId });
-
-    this.logger.log(
-      `✅ Cliente ${client.id} (usuario ${userId}) se unió a conversación ${conversationId}`,
-    );
-
-    // 🔽 Marcar como leídos los mensajes pendientes
-    const updatedMessages = await this.messageService.markMessagesAsRead(
-      conversationId,
-      userId,
-    );
-
-    // Emitir evento al socket individual
-    this.server.to(`conversation-${conversationId}`).emit('messagesRead', {
-      conversationId,
-      userId,
-      messageIds: updatedMessages.map((m) => m.id),
     });
   }
 
-  @SubscribeMessage('listernersNotification')
-  handleJoinRoomNotification(
-    @MessageBody() userId: number,
-    @ConnectedSocket() client: Socket,
-  ) {
-    client.join(`notification-${userId}`);
-    console.log(`Client ${client.id} joined notification ${userId}`);
+  emitNewTicket(ticket: Ticket) {
+    this.broadcast({
+      type: 'NEW_TICKET',
+      payload: JSON.stringify({
+        id: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        createdAt: ticket.createdAt,
+        status: ticket.status,
+        priority: ticket.priority,
+        reasonReport: ticket.reasonReport,
+        location: ticket.location,
+        nameCommercial: ticket.nameCommercial,
+        isForeign: ticket.isForeign,
+        resolved: ticket.resolved,
+        resolvedAt: ticket.resolvedAt,
+        typeOfReport: ticket.typeOfReport,
+        createdBy: ticket.createdBy ? {
+          id: ticket.createdBy.id,
+          name: ticket.createdBy.name,
+          profilePicture: ticket.createdBy.image,
+        } : null,
+        cliente: ticket.cliente ? {
+          id: ticket.cliente.id,
+          name: ticket.cliente.razonSocial,
+        } : null,
+        assigmentsTechnical: ticket.assigmentsTechnical?.map((t) => ({
+          id: t.id,
+          name: t.name,
+          profilePicture: t.image,
+        })) ?? [],
+        comments: ticket.comments ?? [],
+        updates: ticket.updates ?? [],
+        typeOfReportEntity: ticket.typeOfReportEntity ?? null,
+      }),
+    });
   }
 
-  @SubscribeMessage('leaveConversation')
-  handleLeaveRoom(
-    @MessageBody() conversationId: number,
-    @ConnectedSocket() client: Socket,
-  ) {
-    client.leave(`conversation-${conversationId}`);
-     this.logger.log(
-      `⛓️‍💥 Client ${client.id} left conversation ${conversationId}`,
-    );
+  emitTicketUpdated(ticket: Ticket) {
+    this.broadcast({
+      type: 'TICKET_UPDATED',
+      payload: JSON.stringify({
+        id: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        updatedAt: ticket.updatedAt,
+        status: ticket.status,
+        priority: ticket.priority,
+        reasonReport: ticket.reasonReport,
+        location: ticket.location,
+        nameCommercial: ticket.nameCommercial,
+        isForeign: ticket.isForeign,
+        resolved: ticket.resolved,
+        resolvedAt: ticket.resolvedAt,
+        typeOfReport: ticket.typeOfReport,
+        createdBy: ticket.createdBy ? {
+          id: ticket.createdBy.id,
+          name: ticket.createdBy.name,
+          profilePicture: ticket.createdBy.image,
+        } : null,
+        cliente: ticket.cliente ? {
+          id: ticket.cliente.id,
+          name: ticket.cliente.razonSocial,
+        } : null,
+        assigmentsTechnical: ticket.assigmentsTechnical?.map((t) => ({
+          id: t.id,
+          name: t.name,
+          profilePicture: t.image,
+        })) ?? [],
+        comments: ticket.comments ?? [],
+        updates: ticket.updates ?? [],
+        typeOfReportEntity: ticket.typeOfReportEntity ?? null,
+      }),
+    });
   }
 
-   
-  @SubscribeMessage('createEventCalendar')
-  async handleCreateEvent(
-    @ConnectedSocket() client: Socket,
-  ) {
-    
-    this.server.to(`eventCalendar`).emit('createdEventCalendar');
+  emitTicketStatusChanged(ticket: Ticket) {
+    this.broadcast({
+      type: 'TICKET_STATUS_CHANGED',
+      payload: JSON.stringify({
+        id: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        newStatus: ticket.status,
+        updatedAt: ticket.updatedAt,
+        assigmentsTechnical: ticket.assigmentsTechnical?.map((t) => ({
+          id: t.id,
+          name: t.name,
+          profilePicture: t.image,
+        })) ?? [],
+      }),
+    });
   }
 
-  @SubscribeMessage('joinCalendarEvent')
-  handlerJoinCalendarEvent(
-    @ConnectedSocket() client: Socket,
-  ){
-    // Unir al socket a la sala de conversación
-    client.join(`eventCalendar`);
-
-    this.logger.log(
-      `✅ Cliente ${client.id} se ha unido al calendario`,
-    );
-  }
-
-   @SubscribeMessage('leaveCalendarEvent')
-  handleLeaveCalendarEvent(
-    @ConnectedSocket() client: Socket,
-  ) {
-    client.leave(`eventCalendar`);
-     this.logger.log(
-      `⛓️‍💥 Client ${client.id} se ha salido de la sala de los eventos del calendario`,
-    );
+  emitTicketDeleted(ticketId: number) {
+    this.broadcast({
+      type: 'TICKET_DELETED',
+      payload: JSON.stringify({ id: ticketId }),
+    });
   }
 }

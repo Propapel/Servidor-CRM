@@ -38,7 +38,7 @@ import { PaginationDto } from './dto/pagination.dto';
 
 @Controller('ticket')
 export class TicketController {
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(private readonly ticketService: TicketService) { }
 
   // ticket.controller.ts
 
@@ -49,7 +49,7 @@ export class TicketController {
     if (!term)
       throw new BadRequestException('El término de búsqueda es requerido');
     console.log(`Buscando tickets con el término: ${term} en sucursal ID: ${id}`);
-    return this.ticketService.searchByText(+id,term);
+    return this.ticketService.searchByText(+id, term);
   }
 
   @Get('byBranchPaging/:id')
@@ -59,6 +59,19 @@ export class TicketController {
     @Req() request: Request,
   ) {
     return this.ticketService.findAllByBranchPagging(
+      +id,
+      paginationDto,
+      request,
+    );
+  }
+
+   @Get('getTicketCreated/:id')
+  findCreatedTicketPagging(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() paginationDto: PaginationDto,
+    @Req() request: Request,
+  ) {
+    return this.ticketService.findTicketCreatedPagging(
       +id,
       paginationDto,
       request,
@@ -396,5 +409,13 @@ export class TicketController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ticketService.deleteTicket(+id);
+  }
+
+  // ticket.controller.ts
+
+  @Get('dashboard-stats/:id')
+  async getDashboardStats(@Param('id', ParseIntPipe) id: number) {
+    console.log(`Generando estadísticas ligeras para sucursal ID: ${id}`);
+    return this.ticketService.findTicketsForStats(+id);
   }
 }

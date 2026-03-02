@@ -29,6 +29,7 @@ import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
 import { PagedResponse } from './dto/paged-response.interface';
 import { Request } from 'express';
 import { PaginationDto } from './dto/pagination.dto';
+import { SocketGateway } from 'src/socket/socket.gateway';
 @Injectable()
 export class TicketService {
   constructor(
@@ -49,41 +50,104 @@ export class TicketService {
     private readonly ticketCommentRepository: Repository<TicketComment>,
     @InjectRepository(TypeOfReportEntity)
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
-  ) {}
+    private readonly socketGateway: SocketGateway,
+  ) { }
 
-  // ticket.service.ts
-
-  async searchByText(branchId: number, term: string) {
+  async findTicketsForStats(branchId: number) {
   return await this.ticketRepository
     .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.isDelete = :isDelete', { isDelete: false })
-    .andWhere(
-      new Brackets((qb) => {
-        qb.where('ticket.reasonReport LIKE :term', { term: `%${term}%` })
-          .orWhere('ticket.nameCommercial LIKE :term', { term: `%${term}%` })
-          .orWhere('ticket.ticketNumber LIKE :term', { term: `%${term}%` })
-          .orWhere('ticket.nameReported LIKE :term', { term: `%${term}%` })
-          
-          // CORRECCIÓN: Usar los alias definidos en los Joins
-          .orWhere('comments.content LIKE :term', { term: `%${term}%` }) 
-          .orWhere('commentAuthor.name LIKE :term', { term: `%${term}%` })
-          .orWhere('cliente.razonSocial LIKE :term', { term: `%${term}%` });
-      }),
-    )
-    .andWhere('sucursal.id = :branchId', { branchId })
+    .select([
+      'ticket.id',        // Identificador
+      'ticket.status',    // Para count { it.status == ... }
+      'ticket.resolved',  // Para count { it.resolved }
+      'ticket.createdAt'  // Para toWeeklyTrend
+    ])
+    .innerJoin('ticket.sucursal', 'sucursal') 
+    .where('sucursal.id = :branchId', { branchId })
+    .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
     .orderBy('ticket.createdAt', 'DESC')
-    .take(20)
     .getMany();
 }
+
+  async searchByText(branchId: number, term: string) {
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('ticket.reasonReport LIKE :term', { term: `%${term}%` })
+            .orWhere('ticket.nameCommercial LIKE :term', { term: `%${term}%` })
+            .orWhere('ticket.ticketNumber LIKE :term', { term: `%${term}%` })
+            .orWhere('ticket.nameReported LIKE :term', { term: `%${term}%` })
+
+            // CORRECCIÓN: Usar los alias definidos en los Joins
+            .orWhere('comments.content LIKE :term', { term: `%${term}%` })
+            .orWhere('commentAuthor.name LIKE :term', { term: `%${term}%` })
+            .orWhere('cliente.razonSocial LIKE :term', { term: `%${term}%` });
+        }),
+      )
+      .andWhere('sucursal.id = :branchId', { branchId })
+      .orderBy('ticket.createdAt', 'DESC')
+      .take(20)
+      .getMany();
+  }
+
+  async findTicketCreatedPagging(
+    userId: number,
+    paginationDto: PaginationDto,
+    request: Request,
+  ) {
+    const { limit = 10, page = 1 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('ticket.createdBy.id = :userId', { userId});
+
+    // 1. Creamos una columna oculta para el ordenamiento
+    queryBuilder.addSelect(
+      `(CASE 
+        WHEN ticket.status = '${TicketStatus.SIN_ASIGNAR}' THEN 1 
+        WHEN ticket.status = '${TicketStatus.RESUELTO}' THEN 3 
+        ELSE 2 
+      END)`,
+      'status_priority', // Este es el alias de la columna virtual
+    );
+
+    // 2. Ordenamos usando el alias que definimos arriba
+    // Nota: Usamos 'ASC' para que el 1 (SIN_ASIGNAR) sea el primero
+    queryBuilder.orderBy('status_priority', 'ASC');
+
+    // 3. Orden secundario por fecha (opcional pero recomendado)
+    queryBuilder.addOrderBy('ticket.createdAt', 'DESC');
+
+    const [tickets, total] = await queryBuilder
+      .take(limit)
+      .skip(skip)
+      .getManyAndCount();
+
+    return this.createPagedResponse(tickets, total, +page, +limit, request);
+  }
+
   async findAllByBranchPagging(
     branchId: number,
     paginationDto: PaginationDto,
@@ -522,19 +586,24 @@ export class TicketService {
 
     // 9. Retornar ticket con relaciones
 
-     return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.id = :id', { id: savedTicket.id })
-    .getOne();
+    const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id: savedTicket.id })
+      .getOne();
+
+    this.socketGateway.emitNewTicket(fullTicket);
+
+    return fullTicket;
+
   }
 
   async create(createTicketDto: CreateTicketDto) {
@@ -853,19 +922,21 @@ export class TicketService {
     });
 
     await this.ticketUpdateRepository.save(updateReport);
-     return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.id = :ticketId', { ticketId })
-    .getOne();
+    const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :ticketId', { ticketId })
+      .getOne();
+    this.socketGateway.emitTicketUpdated(fullTicket);
+    return fullTicket;
   }
 
   async onPauseTicket(ticketId: number, reasonPause: string) {
@@ -889,37 +960,41 @@ export class TicketService {
   }
 
   async updateStatus(ticketId: number, statusTicket: TicketStatus) {
-  // Convertimos a número para asegurar que la búsqueda sea correcta
-  const id = Number(ticketId);
-  
-  console.log(`Buscando ticket con ID: ${id}`); // Log de depuración
+    // Convertimos a número para asegurar que la búsqueda sea correcta
+    const id = Number(ticketId);
 
-  const ticket = await this.ticketRepository.findOne({
-    where: { id: id },
-  });
+    console.log(`Buscando ticket con ID: ${id}`); // Log de depuración
 
-  if (!ticket) {
-    // Si el error persiste, el ID que ves en el console.log no existe en tu DB
-    throw new Error(`Ticket con ID ${id} no encontrado en la base de datos`);
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: id },
+    });
+
+    if (!ticket) {
+      // Si el error persiste, el ID que ves en el console.log no existe en tu DB
+      throw new Error(`Ticket con ID ${id} no encontrado en la base de datos`);
+    }
+
+    ticket.status = statusTicket;
+    await this.ticketRepository.save(ticket);
+
+    const updatedTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id })
+      .getOne();
+    this.socketGateway.emitTicketStatusChanged(updatedTicket); // ← agregar esto
+
+    return updatedTicket
+
   }
-
-  ticket.status = statusTicket;
-  await this.ticketRepository.save(ticket);
-
-  return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.id = :id', { id })
-    .getOne();
-}
   async closeTicketWithFile(file: Express.Multer.File, ticketId: number) {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId }
@@ -987,19 +1062,21 @@ export class TicketService {
       ticket.ratingToken,
     );
 */
-    return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.id = :ticketId', { ticketId })
-    .getOne();
+     const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :ticketId', { ticketId })
+      .getOne();
+    this.socketGateway.emitTicketUpdated(fullTicket);
+    return fullTicket;
   }
 
   async closeTicket(ticketId: number, closeTicketDto: CloseTicketDto) {
@@ -1855,7 +1932,7 @@ export class TicketService {
       try {
         const buffer = Buffer.from(base64Image, 'base64');
         const fileName = `comment_img_${userId}_T${ticketId}_${Date.now()}.png`;
-        
+
         // Asumiendo que storage es tu utilidad de Firebase/S3
         const imageResult = await storage.uploadFromBuffer(
           buffer,
@@ -1883,22 +1960,22 @@ export class TicketService {
 
     await this.ticketCommentRepository.save(newComment);
 
-    // 6. Retornar el Ticket actualizado con todas las relaciones
-     // 6. Retornar el Ticket actualizado con todas las relaciones
-     return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-    .leftJoinAndSelect('ticket.updates', 'updates')
-    .leftJoinAndSelect('ticket.comments', 'comments')
-    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-    .leftJoinAndSelect('comments.author', 'commentAuthor')
-    .leftJoinAndSelect('ticket.cliente', 'cliente')
-    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-    .leftJoinAndSelect('ticket.equipo', 'equipo')
-    .where('ticket.id = :ticketId', { ticketId })
-    .getOne();
-}
+     const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :ticketId', { ticketId })
+      .getOne();
+    this.socketGateway.emitTicketUpdated(fullTicket);
+    return fullTicket;
+  }
   async sendPageService(id: number) {
     const ticketFound = await this.ticketRepository.findOne({
       where: {
@@ -1945,17 +2022,17 @@ export class TicketService {
 
     const technicalAssignment =
       ticket.status === TicketStatus.ASIGNADO ||
-      ticket.status === TicketStatus.EN_PROCESO ||
-      ticket.status === TicketStatus.EN_ESPERA ||
-      ticket.status == TicketStatus.ON_SITE ||
-      ticket.status == TicketStatus.IN_REMOTE
+        ticket.status === TicketStatus.EN_PROCESO ||
+        ticket.status === TicketStatus.EN_ESPERA ||
+        ticket.status == TicketStatus.ON_SITE ||
+        ticket.status == TicketStatus.IN_REMOTE
         ? `<p><strong>Técnico(s) asignado(s):</strong> ${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</p>`
         : '';
 
     const reportAttentInPlace =
       (ticket.status === TicketStatus.EN_PROCESO &&
         ticket.attentionType == TicketAttentionType.EN_SITIO) ||
-      ticket.status == TicketStatus.ON_SITE
+        ticket.status == TicketStatus.ON_SITE
         ? `<p>El técnico se encuentra en camino para atender el reporte en sitio.</p>`
         : '';
 
@@ -2343,20 +2420,20 @@ export class TicketService {
 
                                                          <div class="tracking-container">
                                                              ${Object.values(
-                                                               steps,
-                                                             )
-                                                               .map(
-                                                                 (
-                                                                   step,
-                                                                   index,
-                                                                 ) => `
+      steps,
+    )
+        .map(
+          (
+            step,
+            index,
+          ) => `
                                                              <div class="tracking-step ${step.class}">
                                                                  <div class="icon">${step.icon}</div>
                                                                  <div class="label">${step.label}</div>
                                                              </div>
                                                              `,
-                                                               )
-                                                               .join('')}
+        )
+        .join('')}
                                                          </div>
 
 

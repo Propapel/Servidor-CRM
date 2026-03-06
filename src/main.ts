@@ -9,7 +9,11 @@ import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: ['https://www.mesadeayudasaimid.org', 'https://mesadeayudasaimid.org'],
+    origin: [
+      'https://www.mesadeayudasaimid.org',
+      'https://mesadeayudasaimid.org',
+      'https://propapel.vercel.app'
+    ],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, x-api-key',
   });

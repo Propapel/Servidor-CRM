@@ -3,7 +3,7 @@ import { EquipmentReplacement } from "src/equipment-replacement/entities/equipme
 import { LicenseAssignment } from "src/license-assignment/entities/license-assignment.entity";
 import { Ticket } from "src/ticket/entities/ticket.entity";
 import { User } from "src/users/user.entity";
-import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity( 'client')
 export class Client {
@@ -39,5 +39,8 @@ export class Client {
 
    @OneToMany(() => EquipmentReplacement, (equipmentReplacements) => equipmentReplacements.client)
   equipmentReplacements: EquipmentReplacement[];
+
+  @ManyToMany(() => User, (user) => user.assignedClients)
+  users: User[];
 
 }

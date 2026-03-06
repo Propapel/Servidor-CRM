@@ -66,7 +66,7 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       permissions,
-      clients: userFound.clients,
+      clients: userFound.assignedClients,
       roles: userFound.roles,
       sucursales: userFound.sucursales[0],
       accessTokenExpirationTimestamp,

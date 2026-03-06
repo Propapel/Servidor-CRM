@@ -61,6 +61,14 @@ export class User {
   @ManyToMany(() => Sucursales, (sucursal) => sucursal.usuarios)
   sucursales: Sucursales[];
 
+  @ManyToMany(() => Client, (client) => client.users)
+  @JoinTable({
+    name: 'users_have_clients', // Nombre de la tabla intermedia
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'client_id', referencedColumnName: 'id' },
+  })
+  assignedClients: Client[];
+  
   @Column()
   password: string;
 

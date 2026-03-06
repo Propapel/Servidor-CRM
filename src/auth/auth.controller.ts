@@ -18,7 +18,19 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private mailService: MailService,
-  ) {}
+  ) { }
+
+
+
+  /**
+   * Registra un nuevo cliente en el sistema con el rol 7.
+   * @param user Datos del cliente a registrar.
+   * @returns El cliente registrado y sus tokens de acceso.
+   */
+  @Post('registerClient')
+  registerClient(@Body() user: RegisterUserDto) {
+    return this.authService.registerClient(user);
+  }
 
   /**
    * Registra un nuevo usuario en el sistema.

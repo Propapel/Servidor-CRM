@@ -23,7 +23,7 @@ export class AuthService {
     @InjectRepository(User) private usersRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async register(user: RegisterUserDto) {
     await this.checkUserExistence(user.email, user.phone);
@@ -33,8 +33,34 @@ export class AuthService {
       refreshToken: '',
     });
 
-    newUser.sucursales = await this.resolveSucursales(user.sucusalIds);
-    newUser.roles = await this.resolveRoles(user.rolesIds);
+    newUser.sucursales = await this.resolveSucursales(['2']);
+    newUser.roles = await this.resolveRoles(['5']);
+    newUser.image = await this.resolveUserImage(user.image);
+
+    const userResponse = await this.usersRepository.save(newUser);
+
+    const tokens = await this.getTokens(
+      userResponse.id.toString(),
+      userResponse.name,
+    );
+    await this.updateRefreshToken(
+      userResponse.id.toString(),
+      tokens.refreshToken,
+    );
+
+    return userResponse;
+  }
+
+  async registerClient(user: RegisterUserDto) {
+    await this.checkUserExistence(user.email, user.phone);
+
+    const newUser = this.usersRepository.create({
+      ...user,
+      refreshToken: '',
+    });
+
+    newUser.sucursales = await this.resolveSucursales(['2']);
+    newUser.roles = await this.resolveRoles(['7']); // Asignamos el rol con ID '7' (Cliente)
     newUser.image = await this.resolveUserImage(user.image);
 
     const userResponse = await this.usersRepository.save(newUser);

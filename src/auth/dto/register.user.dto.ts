@@ -8,8 +8,6 @@ export class RegisterUserDto {
 
     email: string;
 
-    sucusalIds: string[];
-
     puesto: string;
 
 
@@ -18,8 +16,6 @@ export class RegisterUserDto {
     image: string;
 
     password: string;
-
-    rolesIds: string[];
 
     notificationToken?: string;
 

@@ -9,7 +9,7 @@ import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: '*',
+    origin: ['https://www.mesadeayudasaimid.org', 'https://mesadeayudasaimid.org'],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, x-api-key',
   });

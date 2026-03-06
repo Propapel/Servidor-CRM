@@ -164,7 +164,7 @@ export class AuthService {
     const { email, password } = loginAuthDto;
     const user = await this.usersRepository.findOne({
       where: { email },
-      relations: ['roles', 'roles.permissions', 'permissions', 'sucursales', 'clients'],
+      relations: ['roles', 'roles.permissions', 'permissions', 'sucursales', 'clients', 'assignedClients'],
     });
 
     if (!user || user.isDelete) {

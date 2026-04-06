@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { SocketGateway } from './socket.gateway';
-import { MessageService } from 'src/message/message.service';
+import { MessageService } from '../message/message.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { Message } from 'src/message/entities/message.entity';
-import { Conversation } from 'src/conversation/entities/conversation.entity';
-import { User } from 'src/users/user.entity';
+import { Message } from '../message/entities/message.entity';
+import { Conversation } from '../conversation/entities/conversation.entity';
+import { User } from '../users/user.entity';
 
 @Module({
    imports: [

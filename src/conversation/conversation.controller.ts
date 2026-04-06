@@ -12,7 +12,7 @@ import {
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('conversation')
 export class ConversationController {

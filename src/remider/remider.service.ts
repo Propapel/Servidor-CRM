@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Reminder } from './entity/remider.entity';
 import { Repository } from 'typeorm';
 import { CreateOnlyReminderDto } from './dto/create-only-reminder.dto';
-import { Customer } from 'src/customers/entity/customer.entity';
+import { Customer } from '../customers/entity/customer.entity';
 import { UpdateReminderDto } from './dto/update_reminder.dto';
 import { CloseReminderDto } from './dto/close_reminder.dto';
 

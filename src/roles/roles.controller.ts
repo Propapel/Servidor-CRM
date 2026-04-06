@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRolDto } from './dto/create-rol.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('roles')
 export class RolesController {

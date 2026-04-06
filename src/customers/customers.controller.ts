@@ -13,7 +13,7 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { UpdateStatusCustomerDto } from './dto/update_status_customer.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('customers')
 export class CustomersController {

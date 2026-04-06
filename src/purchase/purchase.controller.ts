@@ -1,7 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { PurchaseService } from './purchase.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('purchase')
 export class PurchaseController {

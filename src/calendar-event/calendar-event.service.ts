@@ -4,7 +4,7 @@ import { UpdateCalendarEventDto } from './dto/update-calendar-event.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { Repository } from 'typeorm';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { ProspectingReason } from './enum/prospecting_reason';
 import { CalendarEventStatus } from './enum/calendar_event_status';
 import { number } from 'joi';

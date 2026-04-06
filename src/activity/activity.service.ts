@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
+import { Customer } from '../customers/entity/customer.entity';
 import { Repository } from 'typeorm';
 import { Activity } from './entities/activity.entity';
 import storage = require('../utils/cloud_storage.js');

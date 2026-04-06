@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Interaction } from './entity/interation.entity';
 import { Repository } from 'typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
+import { Customer } from '../customers/entity/customer.entity';
 import { CreateOnlyInteractionDto } from './dto/create_only_interaction.dto';
-import { Purchase } from 'src/purchase/entity/purchase.entity';
+import { Purchase } from '../purchase/entity/purchase.entity';
 
 @Injectable()
 export class InterationService {

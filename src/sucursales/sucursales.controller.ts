@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@n
 import { SucursalesService } from './sucursales.service';
 import { CreateSucursaleDto } from './dto/create-sucursale.dto';
 import { UpdateSucursaleDto } from './dto/update-sucursale.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('sucursales')
 export class SucursalesController {

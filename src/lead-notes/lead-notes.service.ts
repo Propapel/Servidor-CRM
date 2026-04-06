@@ -4,9 +4,9 @@ import { UpdateLeadNoteDto } from './dto/update-lead-note.dto';
 import { Repository } from 'typeorm';
 import { LeadNote } from './entities/lead-note.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
-import { CustomersService } from 'src/customers/customers.service';
-import { User } from 'src/users/user.entity';
+import { Customer } from '../customers/entity/customer.entity';
+import { CustomersService } from '../customers/customers.service';
+import { User } from '../users/user.entity';
 const timeRelative = require('../utils/time_relative');
 
 @Injectable()

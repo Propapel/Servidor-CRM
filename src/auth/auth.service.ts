@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { In, Repository } from 'typeorm';
 import { RegisterUserDto } from './dto/register.user.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
@@ -10,8 +10,8 @@ import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './service/MailService';
 import { resetPasswordDto } from './dto/reset-password.dto';
-import { Rol } from 'src/roles/rol.entity';
-import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { Rol } from '../roles/rol.entity';
+import { Sucursales } from '../sucursales/entities/sucursale.entity';
 import storage = require('../utils/cloud_storage.js');
 
 @Injectable()

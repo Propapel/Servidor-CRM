@@ -3,21 +3,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Customer } from './entity/customer.entity';
 import { Like, Not, Repository } from 'typeorm';
 import { CreateCustomerDto } from './dto/create-customer.dto';
-import { User } from 'src/users/user.entity';
-import { Reminder } from 'src/remider/entity/remider.entity';
-import { Purchase } from 'src/purchase/entity/purchase.entity';
-import { Interaction } from 'src/interation/entity/interation.entity';
-import { Opportunity } from 'src/oportunity/entity/oportunity.entity';
+import { User } from '../users/user.entity';
+import { Reminder } from '../remider/entity/remider.entity';
+import { Purchase } from '../purchase/entity/purchase.entity';
+import { Interaction } from '../interation/entity/interation.entity';
+import { Opportunity } from '../oportunity/entity/oportunity.entity';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { LeadHistory } from 'src/lead-history/entities/lead-history.entity';
-import { LeadAction } from 'src/enums/lead-action';
+import { LeadHistory } from '../lead-history/entities/lead-history.entity';
+import { LeadAction } from '../enums/lead-action';
 import { UpdateStatusCustomerDto } from './dto/update_status_customer.dto';
-import { LeadStatus } from 'src/enums/lead_status';
-import { ManagerReviewStatus } from 'src/enums/lead_manager_review';
-import { MailService } from 'src/auth/service/MailService';
-import { NotifityAlertAssignedCustomer } from 'src/auth/service/notifityAlertAssignedCustomer.dto';
-import { Conversation } from 'src/conversation/entities/conversation.entity';
-import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
+import { LeadStatus } from '../enums/lead_status';
+import { ManagerReviewStatus } from '../enums/lead_manager_review';
+import { MailService } from '../auth/service/MailService';
+import { NotifityAlertAssignedCustomer } from '../auth/service/notifityAlertAssignedCustomer.dto';
+import { Conversation } from '../conversation/entities/conversation.entity';
+import { CalendarEvent } from '../calendar-event/entities/calendar-event.entity';
 
 @Injectable()
 export class CustomersService {

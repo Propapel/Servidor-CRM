@@ -4,8 +4,8 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
 import { Repository } from 'typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
-import { Purchase } from 'src/purchase/entity/purchase.entity';
+import { Customer } from '../customers/entity/customer.entity';
+import { Purchase } from '../purchase/entity/purchase.entity';
 import { ProjectCancellation } from './entities/projectCancellation.entity';
 import { DeleteProjectDto } from './dto/delete_project.dto';
 

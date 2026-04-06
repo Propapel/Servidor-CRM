@@ -3,15 +3,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { RefreshTokenStrategy } from './strategies/refreshToken.strategy';
 import { AccessTokenStrategy } from './strategies/jwt.strategy';
 import { MailService } from './service/MailService';
-import { RolesService } from 'src/roles/roles.service';
-import { Rol } from 'src/roles/rol.entity';
-import { SucursalesService } from 'src/sucursales/sucursales.service';
-import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { RolesService } from '../roles/roles.service';
+import { Rol } from '../roles/rol.entity';
+import { SucursalesService } from '../sucursales/sucursales.service';
+import { Sucursales } from '../sucursales/entities/sucursale.entity';
 
 @Module({
   imports: [

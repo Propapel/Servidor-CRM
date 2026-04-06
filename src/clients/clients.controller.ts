@@ -16,7 +16,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as XLSX from 'xlsx';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 
 @Controller('clients')
 export class ClientsController {

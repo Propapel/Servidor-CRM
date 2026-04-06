@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
-import { Conversation } from 'src/conversation/entities/conversation.entity';
+import { Conversation } from '../conversation/entities/conversation.entity';
 import { Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { Message } from './entities/message.entity';
 
 @Injectable()

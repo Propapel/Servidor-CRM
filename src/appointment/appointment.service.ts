@@ -3,7 +3,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment } from './entities/appointment.entity';
 import { Repository } from 'typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
+import { Customer } from '../customers/entity/customer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()

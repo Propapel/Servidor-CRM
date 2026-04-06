@@ -6,7 +6,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, WebSocket } from 'ws';
 import { Logger } from '@nestjs/common';
-import { Ticket } from 'src/ticket/entities/ticket.entity';
+import { Ticket } from '../ticket/entities/ticket.entity';
 
 @WebSocketGateway({
   path: '/tickets',

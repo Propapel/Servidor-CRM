@@ -3,7 +3,7 @@ import { CalendarEventService } from './calendar-event.service';
 import { CalendarEventController } from './calendar-event.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({

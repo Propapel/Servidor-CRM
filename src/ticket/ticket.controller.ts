@@ -21,12 +21,12 @@ import {
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 import { AsignTechnicalDto } from './dto/asign-technical.dto';
 import { CloseTicketDto } from './dto/close_ticket.dto';
 import { Request, Response } from 'express';
 import { RateTicketDto } from './dto/rating_ticket_resolved.dto';
-import { User } from 'src/users/user.entity';
+import { User } from '../users/user.entity';
 import { AddCommentTicketDto } from './dto/add_comment_ticket.dto';
 import { TicketStatus } from './enum/ticiket_report_status';
 import { map, Observable, retry } from 'rxjs';

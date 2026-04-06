@@ -13,7 +13,7 @@ import { RemiderService } from './remider.service';
 import { CreateOnlyReminderDto } from './dto/create-only-reminder.dto';
 import { UpdateReminderDto } from './dto/update_reminder.dto';
 import { CloseReminderDto } from './dto/close_reminder.dto';
-import { AccessTokenGuard } from 'src/auth/guards/jwt-auth.guard';
+import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('remider')
 export class RemiderController {

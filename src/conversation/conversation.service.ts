@@ -4,8 +4,8 @@ import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { Conversation } from './entities/conversation.entity';
 import { In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/users/user.entity';
-import { Customer } from 'src/customers/entity/customer.entity';
+import { User } from '../users/user.entity';
+import { Customer } from '../customers/entity/customer.entity';
 
 @Injectable()
 export class ConversationService {

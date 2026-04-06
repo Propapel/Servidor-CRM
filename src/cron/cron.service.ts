@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { startOfWeek, endOfWeek, getMonth, getYear } from 'date-fns';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { alertReminderDto } from 'src/auth/dto/alert_reminder.dto';
-import { MailProgressExecutiveDto } from 'src/auth/dto/mailProgressExecutiveDto';
-import { MailService } from 'src/auth/service/MailService';
-import { RemiderService } from 'src/remider/remider.service';
-import { UsersService } from 'src/users/users.service';
-import { LeadStatus } from 'src/enums/lead_status';
+import { alertReminderDto } from '../auth/dto/alert_reminder.dto';
+import { MailProgressExecutiveDto } from '../auth/dto/mailProgressExecutiveDto';
+import { MailService } from '../auth/service/MailService';
+import { RemiderService } from '../remider/remider.service';
+import { UsersService } from '../users/users.service';
+import { LeadStatus } from '../enums/lead_status';
 
 @Injectable()
 export class CronService {

@@ -8,9 +8,9 @@ import { compare } from 'bcrypt';
 import storage = require('../utils/cloud_storage.js');
 import { Not, Like } from 'typeorm';
 import { hash } from 'bcrypt';
-import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
+import { Sucursales } from '../sucursales/entities/sucursale.entity';
 import { UpdateInfoUserDto } from './dto/update-info-user';
-import { Rol } from 'src/roles/rol.entity';
+import { Rol } from '../roles/rol.entity';
 @Injectable()
 export class UsersService {
   constructor(

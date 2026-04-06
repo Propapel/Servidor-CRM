@@ -14,6 +14,8 @@ import { Ticket } from 'src/ticket/entities/ticket.entity';
 export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayDisconnect<WebSocket> {
   @WebSocketServer() server: Server;
 
+   private pingInterval: NodeJS.Timeout;
+   
   private readonly logger = new Logger(SocketGateway.name);
 
   handleConnection(client: WebSocket) {

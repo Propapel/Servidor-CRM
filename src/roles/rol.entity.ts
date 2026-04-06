@@ -1,5 +1,5 @@
-import { Permission } from '../../permission/entities/permission.entity';
-import { User } from '../../users/user.entity';
+import { Permission } from '../permission/entities/permission.entity';
+import { User } from '../users/user.entity';
 import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn } from 'typeorm';
 
 @Entity({ name: 'roles' })

@@ -1,6 +1,6 @@
-import { Client } from 'src/clients/entities/client.entity';
-import { LicenseAssignment } from 'src/license-assignment/entities/license-assignment.entity';
-import { Product } from 'src/product/entities/product.entity';
+import { Client } from '../../clients/entities/client.entity';
+import { LicenseAssignment } from '../../license-assignment/entities/license-assignment.entity';
+import { Product } from '../../product/entities/product.entity';
 import {
   Column,
   Entity,

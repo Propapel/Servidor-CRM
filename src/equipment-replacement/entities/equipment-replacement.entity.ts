@@ -1,6 +1,6 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { ReplacementStatus } from '../enum/replacement-status';
-import { Client } from 'src/clients/entities/client.entity';
+import { Client } from '../../clients/entities/client.entity';
 
 @Entity('equipment_replacement')
 export class EquipmentReplacement {

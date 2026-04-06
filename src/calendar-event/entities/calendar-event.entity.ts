@@ -1,5 +1,5 @@
-import { Reminder } from 'src/remider/entity/remider.entity';
-import { User } from 'src/users/user.entity';
+import { Reminder } from '../../remider/entity/remider.entity';
+import { User } from '../../users/user.entity';
 import {
   Column,
   Entity,

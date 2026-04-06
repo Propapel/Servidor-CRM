@@ -1,5 +1,5 @@
-import { Client } from "src/clients/entities/client.entity";
-import { Itequipment } from "src/itequipments/entities/itequipment.entity";
+import { Client } from "../../clients/entities/client.entity";
+import { Itequipment } from "../../itequipments/entities/itequipment.entity";
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity('department')

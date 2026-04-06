@@ -1,4 +1,4 @@
-import { LeadAction } from 'src/enums/lead-action';
+import { LeadAction } from '../../enums/lead-action';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 @Entity()

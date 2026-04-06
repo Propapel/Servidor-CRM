@@ -5,9 +5,9 @@ import {
   TipoEquipo,
   TipoImpresora,
 } from '../enum/itequiment.enum';
-import { Department } from 'src/departments/entities/department.entity';
-import { Ticket } from 'src/ticket/entities/ticket.entity';
-import { Contador } from 'src/contador/entities/contador.entity';
+import { Department } from '../../departments/entities/department.entity';
+import { Ticket } from '../../ticket/entities/ticket.entity';
+import { Contador } from '../../contador/entities/contador.entity';
 
 @Entity('itequipment')
 export class Itequipment {

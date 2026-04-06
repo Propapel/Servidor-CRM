@@ -1,5 +1,5 @@
-import { Customer } from "src/customers/entity/customer.entity";
-import { Purchase } from "src/purchase/entity/purchase.entity";
+import { Customer } from "../../customers/entity/customer.entity";
+import { Purchase } from "../../purchase/entity/purchase.entity";
 import { Column, Entity, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { ProjectCancellation } from "./projectCancellation.entity";
 

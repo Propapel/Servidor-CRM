@@ -1,4 +1,4 @@
-import { License } from 'src/license/entities/license.entity';
+import { License } from '../../license/entities/license.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('products')

@@ -1,6 +1,6 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { TicketAction } from "../enum/ticket_action_enum";
-import { Ticket } from "src/ticket/entities/ticket.entity";
+import { Ticket } from "../../ticket/entities/ticket.entity";
 
 @Entity('ticket_update')
 export class TicketUpdate {

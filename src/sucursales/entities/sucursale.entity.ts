@@ -1,6 +1,6 @@
-import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
-import { Ticket } from 'src/ticket/entities/ticket.entity';
-import { User } from 'src/users/user.entity';
+import { CalendarEvent } from '../../calendar-event/entities/calendar-event.entity';
+import { Ticket } from '../../ticket/entities/ticket.entity';
+import { User } from '../../users/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

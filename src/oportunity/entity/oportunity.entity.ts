@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
 import { Customer } from '../../customers/entity/customer.entity';
-import { Reminder } from 'src/remider/entity/remider.entity';
-import { Interaction } from 'src/interation/entity/interation.entity';
+import { Reminder } from '../../remider/entity/remider.entity';
+import { Interaction } from '../../interation/entity/interation.entity';
 
 @Entity('opportunities')
 export class Opportunity {

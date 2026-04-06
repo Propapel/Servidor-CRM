@@ -1,5 +1,5 @@
-import { Conversation } from "src/conversation/entities/conversation.entity";
-import { User } from "src/users/user.entity";
+import { Conversation } from "../../conversation/entities/conversation.entity";
+import { User } from "../../users/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()

@@ -1,5 +1,5 @@
-import { Customer } from 'src/customers/entity/customer.entity';
-import { Opportunity } from 'src/oportunity/entity/oportunity.entity';
+import { Customer } from '../../customers/entity/customer.entity';
+import { Opportunity } from '../../oportunity/entity/oportunity.entity';
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
 
 @Entity('interactions')

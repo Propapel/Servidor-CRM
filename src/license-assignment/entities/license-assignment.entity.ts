@@ -1,5 +1,5 @@
-import { Client } from "src/clients/entities/client.entity";
-import { License } from "src/license/entities/license.entity";
+import { Client } from "../../clients/entities/client.entity";
+import { License } from "../../license/entities/license.entity";
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity('license_assignments')

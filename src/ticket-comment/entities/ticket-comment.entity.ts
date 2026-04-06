@@ -1,5 +1,5 @@
-import { Ticket } from "src/ticket/entities/ticket.entity";
-import { User } from "src/users/user.entity";
+import { Ticket } from "../../ticket/entities/ticket.entity";
+import { User } from "../../users/user.entity";
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity('ticket_comment')

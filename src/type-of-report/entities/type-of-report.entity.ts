@@ -1,4 +1,4 @@
-import { Ticket } from 'src/ticket/entities/ticket.entity';
+import { Ticket } from '../../ticket/entities/ticket.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('type_of_report')

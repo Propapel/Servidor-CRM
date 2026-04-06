@@ -1,8 +1,8 @@
-import { Department } from "src/departments/entities/department.entity";
-import { EquipmentReplacement } from "src/equipment-replacement/entities/equipment-replacement.entity";
-import { LicenseAssignment } from "src/license-assignment/entities/license-assignment.entity";
-import { Ticket } from "src/ticket/entities/ticket.entity";
-import { User } from "src/users/user.entity";
+import { Department } from "../../departments/entities/department.entity";
+import { EquipmentReplacement } from "../../equipment-replacement/entities/equipment-replacement.entity";
+import { LicenseAssignment } from "../../license-assignment/entities/license-assignment.entity";
+import { Ticket } from "../../ticket/entities/ticket.entity";
+import { User } from "../../users/user.entity";
 import { Column, Entity, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity( 'client')

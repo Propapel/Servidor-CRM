@@ -13,14 +13,14 @@ import { Opportunity } from '../../oportunity/entity/oportunity.entity';
 import { Interaction } from '../../interation/entity/interation.entity';
 import { Purchase } from '../../purchase/entity/purchase.entity';
 import { Reminder } from '../../remider/entity/remider.entity';
-import { User } from 'src/users/user.entity';
-import { Project } from 'src/projects/entities/project.entity';
-import { Appointment } from 'src/appointment/entities/appointment.entity';
-import { Activity } from 'src/activity/entities/activity.entity';
-import { ManagerReviewStatus } from 'src/enums/lead_manager_review';
-import { LeadStatus } from 'src/enums/lead_status';
-import { LeadNote } from 'src/lead-notes/entities/lead-note.entity';
-import { Conversation } from 'src/conversation/entities/conversation.entity';
+import { User } from '../../users/user.entity';
+import { Project } from '../../projects/entities/project.entity';
+import { Appointment } from '../../appointment/entities/appointment.entity';
+import { Activity } from '../../activity/entities/activity.entity';
+import { ManagerReviewStatus } from '../../enums/lead_manager_review';
+import { LeadStatus } from '../../enums/lead_status';
+import { LeadNote } from '../../lead-notes/entities/lead-note.entity';
+import { Conversation } from '../../conversation/entities/conversation.entity';
 
 @Entity('customers')
 export class Customer {

@@ -1,4 +1,4 @@
-import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
+import { Itequipment } from '../../itequipments/entities/itequipment.entity';
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('contador')

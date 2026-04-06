@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
-import { Customer } from 'src/customers/entity/customer.entity';
-import { Opportunity } from 'src/oportunity/entity/oportunity.entity';
-import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
+import { Customer } from '../../customers/entity/customer.entity';
+import { Opportunity } from '../../oportunity/entity/oportunity.entity';
+import { CalendarEvent } from '../../calendar-event/entities/calendar-event.entity';
 
 @Entity('reminders')
 export class Reminder {

@@ -8,14 +8,14 @@ import {
   JoinTable,
 } from 'typeorm';
 import { hash } from 'bcrypt';
-import { Customer } from 'src/customers/entity/customer.entity';
-import { Rol } from 'src/roles/rol.entity';
-import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
-import { LeadNote } from 'src/lead-notes/entities/lead-note.entity';
-import { CalendarEvent } from 'src/calendar-event/entities/calendar-event.entity';
-import { Task } from 'src/task/entities/task.entity';
-import { Client } from 'src/clients/entities/client.entity';
-import { Permission } from 'src/permission/entities/permission.entity';
+import { Customer } from '../customers/entity/customer.entity';
+import { Rol } from '../roles/rol.entity';
+import { Sucursales } from '../sucursales/entities/sucursale.entity';
+import { LeadNote } from '../lead-notes/entities/lead-note.entity';
+import { CalendarEvent } from '../calendar-event/entities/calendar-event.entity';
+import { Task } from '../task/entities/task.entity';
+import { Client } from '../clients/entities/client.entity';
+import { Permission } from '../permission/entities/permission.entity';
 
 @Entity({ name: 'users' })
 export class User {

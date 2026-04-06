@@ -1,5 +1,5 @@
-import { Customer } from 'src/customers/entity/customer.entity';
-import { Project } from 'src/projects/entities/project.entity';
+import { Customer } from '../../customers/entity/customer.entity';
+import { Project } from '../../projects/entities/project.entity';
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
 
 @Entity('purchases')

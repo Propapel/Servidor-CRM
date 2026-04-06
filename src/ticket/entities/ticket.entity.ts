@@ -11,17 +11,17 @@ import {
   Index,
   JoinColumn,
 } from 'typeorm';
-import { User } from 'src/users/user.entity';
+import { User } from '../../users/user.entity';
+import { TicketUpdate } from '../../ticket-updated/entities/ticket-updated.entity';
+import { TicketComment } from '../../ticket-comment/entities/ticket-comment.entity';
+import { Client } from '../../clients/entities/client.entity';
+import { Itequipment } from '../../itequipments/entities/itequipment.entity';
+import { Sucursales } from '../../sucursales/entities/sucursale.entity';
+import { TypeOfReportEntity } from '../../type-of-report/entities/type-of-report.entity';
 import { TicketStatus } from '../enum/ticiket_report_status';
 import { TicketPriority } from '../enum/ticket_priority';
 import { TypeOfReport } from '../enum/kind_report';
-import { TicketUpdate } from 'src/ticket-updated/entities/ticket-updated.entity';
-import { TicketComment } from 'src/ticket-comment/entities/ticket-comment.entity';
-import { Client } from 'src/clients/entities/client.entity';
-import { Itequipment } from 'src/itequipments/entities/itequipment.entity';
 import { TicketAttentionType } from '../enum/ticket_attention_type';
-import { Sucursales } from 'src/sucursales/entities/sucursale.entity';
-import { TypeOfReportEntity } from 'src/type-of-report/entities/type-of-report.entity';
 
 @Entity('ticket')
 export class Ticket {

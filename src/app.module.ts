@@ -59,8 +59,9 @@ import { EquipmentReplacementModule } from './equipment-replacement/equipment-re
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB,
+      ssl: { rejectUnauthorized: true },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: true
     }),
     UsersModule,
     RolesModule,

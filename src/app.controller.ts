@@ -5,11 +5,10 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get() 
-  getHello() {
-    return { status: 'ok', message: 'Servidor funcionando' };
+  @Get()
+  getHello(): string {
+    return this.appService.getHello();
   }
-
   @Get('citas')
   getCitas(): string{
     return this.appService.getDates();

@@ -16,13 +16,10 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: [
-      'https://www.mesadeayudasaimid.org',
-      'https://mesadeayudasaimid.org',
-      'https://propapel.vercel.app'
-    ],
+    origin: true, // Permite cualquier origen temporalmente para descartar que sea esto
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, x-api-key',
+    credentials: true,
   });
 
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
@@ -35,7 +32,7 @@ async function bootstrap() {
     const port = process.env.PORT || 3002;
     await app.listen(port);
   }
-  
+
   await app.init();
 }
 

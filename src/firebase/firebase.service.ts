@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as admin from 'firebase-admin';
-import * as path from 'path';
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
@@ -13,12 +12,17 @@ export class FirebaseService implements OnModuleInit {
   private initializeFirebase() {
     if (!admin.apps.length) {
       try {
-        const serviceAccountPath = path.resolve(
-          process.cwd(),
-          'serviceAccountKey.json',
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(
+          /\\n/g,
+          '\n',
         );
+
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccountPath),
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey,
+          }),
         });
         this.logger.log('Firebase Admin SDK initialized successfully');
       } catch (error) {

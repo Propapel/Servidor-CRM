@@ -28,7 +28,7 @@ const uploadFromBuffer = (buffer, pathImage, contentType = 'image/png') => {
           firebaseStorageDownloadTokens: uuid,
         }
       },
-      resumable: true
+      resumable: false
     });
 
     blobStream.on('error', (error) => {

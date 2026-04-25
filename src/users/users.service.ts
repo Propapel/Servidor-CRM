@@ -18,31 +18,31 @@ export class UsersService {
     @InjectRepository(Sucursales)
     private sucusalesRepository: Repository<Sucursales>,
     @InjectRepository(User) private usersRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async getUsersWithBranches() {
-  return await this.usersRepository
-    .createQueryBuilder('user')
-    .leftJoin('user.sucursales', 'sucursal')
-    .select([
-      'user.id AS id',
-      "CONCAT(user.name, ' ', user.lastname) AS Ejecutivo",
-      'user.email AS email',
-      'user.isDelete AS isDelete',
-      'user.puesto AS puesto',
-      'user.phone AS phone',
-      'user.image AS image',
-      'user.wallet AS wallet',
-      'user.created_at AS createdAt',
-      'user.updated_at AS updatedAt',
-      'sucursal.id AS branchId',
-      'sucursal.nombre AS branchName'
-    ])
-    .where(
-      `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`
-    )
-    .getRawMany(); // 🔹 Raw para poder usar aliases y CONCAT
-}
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.sucursales', 'sucursal')
+      .select([
+        'user.id AS id',
+        "CONCAT(user.name, ' ', user.lastname) AS Ejecutivo",
+        'user.email AS email',
+        'user.isDelete AS isDelete',
+        'user.puesto AS puesto',
+        'user.phone AS phone',
+        'user.image AS image',
+        'user.wallet AS wallet',
+        'user.created_at AS createdAt',
+        'user.updated_at AS updatedAt',
+        'sucursal.id AS branchId',
+        'sucursal.nombre AS branchName'
+      ])
+      .where(
+        `user.email LIKE '%@propapel.com.mx' OR user.email LIKE '%@optivosa.com'`
+      )
+      .getRawMany(); // 🔹 Raw para poder usar aliases y CONCAT
+  }
 
 
   async fetchAllUserAppointments() {
@@ -856,6 +856,32 @@ export class UsersService {
     }
 
     return results;
+  }
+  async updateFcmToken(userId: number, token: string) {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new HttpException('Usuario no existe', HttpStatus.NOT_FOUND);
+    }
+    user.fcmToken = token;
+    await this.usersRepository.save(user);
+  }
+
+  async updateFcmTokenRemove(token: string) {
+    try {
+      // El refresh token es un JWT. Podemos decodificarlo para obtener el ID sin descifrar Argon2
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+      const userId = payload.sub;
+
+      const user = await this.usersRepository.findOneBy({ id: Number(userId) });
+      if (!user) {
+        throw new HttpException('Usuario no existe', HttpStatus.NOT_FOUND);
+      }
+      user.fcmToken = null;
+      await this.usersRepository.save(user);
+    } catch (error) {
+      throw new HttpException('Token invalido o estructura incorrecta', HttpStatus.BAD_REQUEST);
+    }
   }
 }
 

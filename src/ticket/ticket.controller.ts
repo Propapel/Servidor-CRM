@@ -20,6 +20,8 @@ import {
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
+import { PublicTicketCommentDto } from '../ticket-comment/dto/public-ticket-comment.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 import { AsignTechnicalDto } from './dto/asign-technical.dto';
@@ -40,7 +42,46 @@ import { PaginationDto } from './dto/pagination.dto';
 export class TicketController {
   constructor(private readonly ticketService: TicketService) { }
 
-  // ticket.controller.ts
+
+  @Get('public/status/:token')
+  async getPublicTicketStatus(@Param('token') token: string) {
+    return this.ticketService.getPublicTicketByToken(token);
+  }
+
+  @Post('public/create')
+  @UseInterceptors(FilesInterceptor('files'))
+  async createPublicTicket(
+    @Body('createTicketDto') createTicketDtoStr: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    let createPublicTicketDto: CreatePublicTicketDto;
+    try {
+      createPublicTicketDto = JSON.parse(createTicketDtoStr);
+    } catch (error) {
+      throw new BadRequestException('Invalid CreatePublicTicketDto format');
+    }
+
+    return this.ticketService.createPublicTicketWithFiles(files, createPublicTicketDto);
+  }
+
+  @Post('public/addComment')
+  @UseInterceptors(FileInterceptor('file'))
+  async addPublicComment(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    let dto: PublicTicketCommentDto;
+    if (body.publicTicketCommentDto) {
+      try {
+        dto = typeof body.publicTicketCommentDto === 'string' ? JSON.parse(body.publicTicketCommentDto) : body.publicTicketCommentDto;
+      } catch (e) {
+        throw new BadRequestException('Invalid format for publicTicketCommentDto');
+      }
+    } else {
+      dto = body as PublicTicketCommentDto;
+    }
+    return this.ticketService.addPublicComment(dto, file);
+  }
 
   @Get('search/find/:id')
   searchTickets(

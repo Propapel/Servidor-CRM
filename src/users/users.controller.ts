@@ -418,4 +418,24 @@ export class UsersController {
     console.log('Datos del usuario recibidos:', user);
     return this.usersService.updateWithImage(id, user);
   }
+
+  @Post(':id/fcm-token')
+  async updateFcmToken(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('fcmToken') token: string,
+  ) {
+    console.log('ID recibido:', id);
+    console.log('Token recibido:', token);
+    if (!token) {
+      throw new Error('Token is required');
+    }
+    return this.usersService.updateFcmToken(id, token);
+  }
+  @Delete('fcm-token-remove/:token')
+  async updateFcmTokenRemove(
+    @Param('token') token: string,
+  ) {
+    console.log('Token recibido:', token);
+    return this.usersService.updateFcmTokenRemove(token);
+  }
 }

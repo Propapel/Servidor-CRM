@@ -1,5 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
+
+import { PublicTicketCommentDto } from '../ticket-comment/dto/public-ticket-comment.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Ticket } from './entities/ticket.entity';
 import { User } from '../users/user.entity';
@@ -30,8 +33,239 @@ import { PagedResponse } from './dto/paged-response.interface';
 import { Request } from 'express';
 import { PaginationDto } from './dto/pagination.dto';
 import { SocketGateway } from '../socket/socket.gateway';
+import { FirebaseService } from '../firebase/firebase.service';
+import { when } from 'joi';
+
 @Injectable()
 export class TicketService {
+  async addPublicComment(publicTicketCommentDto: PublicTicketCommentDto, file?: Express.Multer.File) {
+    const { statusToken, content, imageUrl, publicName } = publicTicketCommentDto;
+
+    const ticket = await this.ticketRepository.findOne({
+      where: { statusToken: statusToken },
+    });
+
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    let finalImageUrl = '';
+
+    if (file) {
+      try {
+        const pathFile = `comment_img_${ticket.id}_${Date.now()}`;
+        const imageResult = await storage.uploadFromFile(
+          file,
+          pathFile,
+          file.mimetype,
+        );
+        if (imageResult) {
+          finalImageUrl = imageResult;
+        }
+      } catch (error) {
+        console.error('Error al subir imagen de comentario por archivo:', error);
+      }
+    } else if (imageUrl && imageUrl.trim() !== '') {
+      try {
+        const buffer = Buffer.from(imageUrl, 'base64');
+        const fileName = `comment_img_${ticket.id}_${Date.now()}.png`;
+
+        // Asumiendo que storage es tu utilidad de Firebase/S3
+        const imageResult = await storage.uploadFromBuffer(
+          buffer,
+          fileName,
+          'image/png',
+        );
+
+        if (imageResult) {
+          finalImageUrl = imageResult;
+        }
+      } catch (error) {
+        console.error('Error al subir imagen de comentario en base64:', error);
+        // Opcional: lanzar error o continuar sin imagen
+      }
+    }
+
+    const comment = this.ticketCommentRepository.create({
+      ticket: ticket,
+      content: content,
+      imageUrl: finalImageUrl || '',
+      isInternal: false,
+      isPublic: true,
+      publicName: publicName || 'Usuario Web',
+    });
+
+    await this.ticketCommentRepository.save(comment);
+
+    const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id: ticket.id })
+      .getOne();
+
+    this.socketGateway.emitTicketUpdated(fullTicket);
+
+    return { message: 'Comentario agregado con exito', ticket: fullTicket };
+  }
+
+  async getPublicTicketByToken(token: string) {
+    const ticket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.statusToken = :token', { token })
+      .getOne();
+
+    if (!ticket) {
+      throw new HttpException('Ticket no encontrado', HttpStatus.NOT_FOUND);
+    }
+    return ticket;
+  }
+
+  async createPublicTicketWithFiles(
+    files: Express.Multer.File[],
+    createTicketDto: CreatePublicTicketDto,
+  ) {
+    const sucursal = await this.sucursalRepository.findOne({
+      where: { id: createTicketDto.sucursalId },
+    });
+    if (!sucursal) {
+      throw new HttpException('Sucursal no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    const createBy = await this.userRepository.findOne({
+      where: { id: 34 },
+    });
+
+    if (!createBy) {
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const sucursalToUser: Record<number, number> = {
+      2: 330,
+      3: 331,
+      4: 332,
+    };
+
+    const idUser = sucursalToUser[sucursal.id];
+
+    const cliente = await this.clientRepository.findOne({
+    where: {
+      id: idUser,
+    },
+  });
+
+    if (!cliente) {
+      throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    let typeOfReportEntity: TypeOfReportEntity | null = null;
+    if (createTicketDto.typeOfReportId) {
+      typeOfReportEntity = await this.typeOfReportRepository.findOne({
+        where: { id: createTicketDto.typeOfReportId },
+      });
+    }
+
+    const lastTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.ticketConsecutive)', 'max')
+      .where('ticket.sucursalId = :sucursalId', {
+        sucursalId: sucursal.id,
+      })
+      .getRawOne<{ max: number }>();
+
+    const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
+
+    const newListFiles: string[] = [];
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const attachment = files[i];
+        const pathFile = `file_report_public_${Date.now()}`;
+        const fileUrl = await storage.uploadFromFile(
+          attachment,
+          pathFile,
+          attachment.mimetype,
+        );
+        if (fileUrl) newListFiles.push(fileUrl);
+      }
+    }
+
+    const ticket = this.ticketRepository.create({
+      ticketNumber: `${sucursal.abbreviation}-${ticketConsecutive}`,
+      ticketConsecutive,
+      statusToken: uuidv4(),
+      nameCommercial: createTicketDto.nameCommercial,
+      nameReported: createTicketDto.nameReported,
+      apartamentReport: createTicketDto.apartamentReport,
+      reasonReport: createTicketDto.reasonReport,
+      location: createTicketDto.location,
+      files: newListFiles,
+      typeOfReportEntity: typeOfReportEntity ?? null,
+      sucursal: sucursal,
+      phoneReport: createTicketDto.phoneReport,
+      emailReport: createTicketDto.emailReport,
+      status: createTicketDto.status || TicketStatus.SIN_ASIGNAR,
+      typeOfReport: createTicketDto.typeOfReport,
+      isPublic: true,
+      createdBy: createBy,
+      cliente: cliente,
+      equipo: null,
+    });
+
+    const savedTicket = await this.ticketRepository.save(ticket);
+
+    const updateReport = this.ticketUpdateRepository.create({
+      action: TicketAction.CREATED,
+      ticket: savedTicket,
+    });
+    await this.ticketUpdateRepository.save(updateReport);
+
+    if (savedTicket.emailReport && savedTicket.emailReport.trim().length > 0) {
+      this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported || 'Usuario',
+        savedTicket.emailReport,
+        savedTicket.ticketNumber,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.statusToken,
+      ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
+    }
+
+    await this.notifyTechnicians(sucursal.id, savedTicket);
+
+    const fullTicket = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      .leftJoinAndSelect('ticket.equipo', 'equipo')
+      .where('ticket.id = :id', { id: savedTicket.id })
+      .getOne();
+
+    this.socketGateway.emitNewTicket(fullTicket);
+
+    return fullTicket;
+  }
+
   constructor(
     @InjectRepository(Sucursales)
     private sucursalRepository: Repository<Sucursales>,
@@ -51,23 +285,24 @@ export class TicketService {
     @InjectRepository(TypeOfReportEntity)
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
     private readonly socketGateway: SocketGateway,
+    private readonly firebaseService: FirebaseService,
   ) { }
 
   async findTicketsForStats(branchId: number) {
-  return await this.ticketRepository
-    .createQueryBuilder('ticket')
-    .select([
-      'ticket.id',        // Identificador
-      'ticket.status',    // Para count { it.status == ... }
-      'ticket.resolved',  // Para count { it.resolved }
-      'ticket.createdAt'  // Para toWeeklyTrend
-    ])
-    .innerJoin('ticket.sucursal', 'sucursal') 
-    .where('sucursal.id = :branchId', { branchId })
-    .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
-    .orderBy('ticket.createdAt', 'DESC')
-    .getMany();
-}
+    return await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select([
+        'ticket.id',        // Identificador
+        'ticket.status',    // Para count { it.status == ... }
+        'ticket.resolved',  // Para count { it.resolved }
+        'ticket.createdAt'  // Para toWeeklyTrend
+      ])
+      .innerJoin('ticket.sucursal', 'sucursal')
+      .where('sucursal.id = :branchId', { branchId })
+      .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
+      .orderBy('ticket.createdAt', 'DESC')
+      .getMany();
+  }
 
   async searchByText(branchId: number, term: string) {
     return await this.ticketRepository
@@ -121,7 +356,7 @@ export class TicketService {
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
-      .andWhere('ticket.createdBy.id = :userId', { userId});
+      .andWhere('ticket.createdBy.id = :userId', { userId });
 
     // 1. Creamos una columna oculta para el ordenamiento
     queryBuilder.addSelect(
@@ -333,27 +568,29 @@ export class TicketService {
       ticket: savedTicket,
     });
     await this.ticketUpdateRepository.save(updateReport);
-
-    // 8. Enviar correos (opcional)
-    await this.mailService.sendEmailCreatedReport(
-      user.name,
-      savedTicket.ticketNumber,
-      user.email,
-      savedTicket.createdAt.toLocaleDateString(),
-      savedTicket.location,
-      savedTicket.reasonReport,
-    );
-    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
-      await this.mailService.sendEmailToClientStatusTicket(
-        savedTicket.nameReported,
+    // 8. Enviar correos en segundo plano (sin await) para que no tarde la respuesta
+    if (user && user.email && user.email.trim().length > 0) {
+      this.mailService.sendEmailCreatedReport(
+        user.name,
+        savedTicket.ticketNumber,
+        user.email,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.location,
+        savedTicket.reasonReport,
+      ).catch(() => console.log('Aviso: Ignorando error de correo interno'));
+    }
+    if (savedTicket.emailReport && savedTicket.emailReport.trim().length > 0) {
+      this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported || 'Usuario',
         savedTicket.emailReport,
         savedTicket.ticketNumber,
         savedTicket.createdAt.toLocaleDateString(),
         savedTicket.statusToken,
-      );
+      ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
 
     // await this.emitTickets(user.sucursales[0].id);
+    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
 
     // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
@@ -465,6 +702,7 @@ export class TicketService {
     await this.ticketUpdateRepository.save(updateReport);
 
     // await this.emitTickets(user.sucursales[0].id);
+    await this.notifyTechnicians(sucursal.id, savedTicket);
 
     // 9. Retornar ticket con relaciones
     return await this.ticketRepository
@@ -563,26 +801,29 @@ export class TicketService {
     });
     await this.ticketUpdateRepository.save(updateReport);
 
-    // 8. Enviar correos (opcional)
-    await this.mailService.sendEmailCreatedReport(
-      user.name,
-      savedTicket.ticketNumber,
-      user.email,
-      savedTicket.createdAt.toLocaleDateString(),
-      savedTicket.location,
-      savedTicket.reasonReport,
-    );
-    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
-      await this.mailService.sendEmailToClientStatusTicket(
-        savedTicket.nameReported,
+    // 8. Enviar correos en segundo plano (sin await) para que no tarde la respuesta
+    if (user && user.email && user.email.trim().length > 0) {
+      this.mailService.sendEmailCreatedReport(
+        user.name,
+        savedTicket.ticketNumber,
+        user.email,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.location,
+        savedTicket.reasonReport,
+      ).catch(() => console.log('Aviso: Ignorando error de correo interno'));
+    }
+    if (savedTicket.emailReport && savedTicket.emailReport.trim().length > 0) {
+      this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported || 'Usuario',
         savedTicket.emailReport,
         savedTicket.ticketNumber,
         savedTicket.createdAt.toLocaleDateString(),
         savedTicket.statusToken,
-      );
+      ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
 
     // await this.emitTickets(user.sucursales[0].id);
+    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
 
     // 9. Retornar ticket con relaciones
 
@@ -690,26 +931,29 @@ export class TicketService {
     });
     await this.ticketUpdateRepository.save(updateReport);
 
-    // 8. Enviar correos (opcional)
-    await this.mailService.sendEmailCreatedReport(
-      user.name,
-      savedTicket.ticketNumber,
-      user.email,
-      savedTicket.createdAt.toLocaleDateString(),
-      savedTicket.location,
-      savedTicket.reasonReport,
-    );
-    if (savedTicket.nameReported.trim() && savedTicket.emailReport.trim()) {
-      await this.mailService.sendEmailToClientStatusTicket(
-        savedTicket.nameReported,
+    // 8. Enviar correos en segundo plano (sin await) para que no tarde la respuesta
+    if (user && user.email && user.email.trim().length > 0) {
+      this.mailService.sendEmailCreatedReport(
+        user.name,
+        savedTicket.ticketNumber,
+        user.email,
+        savedTicket.createdAt.toLocaleDateString(),
+        savedTicket.location,
+        savedTicket.reasonReport,
+      ).catch(() => console.log('Aviso: Ignorando error de correo interno'));
+    }
+    if (savedTicket.emailReport && savedTicket.emailReport.trim().length > 0) {
+      this.mailService.sendEmailToClientStatusTicket(
+        savedTicket.nameReported || 'Usuario',
         savedTicket.emailReport,
         savedTicket.ticketNumber,
         savedTicket.createdAt.toLocaleDateString(),
         savedTicket.statusToken,
-      );
+      ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
 
     // await this.emitTickets(user.sucursales[0].id);
+    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
 
     // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
@@ -1062,7 +1306,7 @@ export class TicketService {
       ticket.ratingToken,
     );
 */
-     const fullTicket = await this.ticketRepository
+    const fullTicket = await this.ticketRepository
       .createQueryBuilder('ticket')
       .leftJoinAndSelect('ticket.createdBy', 'createdBy')
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
@@ -1960,7 +2204,7 @@ export class TicketService {
 
     await this.ticketCommentRepository.save(newComment);
 
-     const fullTicket = await this.ticketRepository
+    const fullTicket = await this.ticketRepository
       .createQueryBuilder('ticket')
       .leftJoinAndSelect('ticket.createdBy', 'createdBy')
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
@@ -2008,576 +2252,178 @@ export class TicketService {
     const steps = this.getProgressSteps(ticket.status);
     const numberContact = ticket.sucursal.numberContact;
 
-    const resolvedMessage =
-      ticket.status === TicketStatus.RESUELTO
-        ? `<div style="text-align: center; margin-top: 30px; padding: 15px; background: #E8F5E9; border-radius: 8px; color: #2E7D32; font-weight: bold;">
-        ✅ ¡El ticket ha sido resuelto exitosamente!
-      </div>`
-        : '';
+    const resolvedMessage = ticket.status === TicketStatus.RESUELTO
+      ? `<div class="mt-8 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 font-semibold flex items-center justify-center gap-3 shadow-sm">
+           <i class="fa-solid fa-circle-check text-2xl"></i> ¡El ticket ha sido resuelto exitosamente!
+         </div>`
+      : '';
 
-    const resolveDate =
-      ticket.status === TicketStatus.RESUELTO && ticket.resolvedAt
-        ? `<p><strong>Fecha de resolución:</strong> ${ticket.resolvedAt.toLocaleDateString()}</p>`
-        : '';
+    const resolveDate = ticket.status === TicketStatus.RESUELTO && ticket.resolvedAt
+      ? `<div class="flex flex-col"><span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Fecha de resolución</span><span class="text-slate-800 font-medium">${ticket.resolvedAt.toLocaleDateString()}</span></div>`
+      : '';
 
-    const technicalAssignment =
-      ticket.status === TicketStatus.ASIGNADO ||
-        ticket.status === TicketStatus.EN_PROCESO ||
-        ticket.status === TicketStatus.EN_ESPERA ||
-        ticket.status == TicketStatus.ON_SITE ||
-        ticket.status == TicketStatus.IN_REMOTE
-        ? `<p><strong>Técnico(s) asignado(s):</strong> ${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</p>`
-        : '';
+    const technicalAssignment = (ticket.status === TicketStatus.ASIGNADO || ticket.status === TicketStatus.EN_PROCESO || ticket.status === TicketStatus.EN_ESPERA || ticket.status == TicketStatus.ON_SITE || ticket.status == TicketStatus.IN_REMOTE)
+      ? `<div class="flex flex-col"><span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Técnico(s) asignado(s)</span><span class="text-slate-800 font-medium">${ticket.assigmentsTechnical.map((tech) => tech.name + ' ' + tech.lastname).join(', ')}</span></div>`
+      : '';
 
-    const reportAttentInPlace =
-      (ticket.status === TicketStatus.EN_PROCESO &&
-        ticket.attentionType == TicketAttentionType.EN_SITIO) ||
-        ticket.status == TicketStatus.ON_SITE
-        ? `<p>El técnico se encuentra en camino para atender el reporte en sitio.</p>`
-        : '';
+    const reportAttentInPlace = ((ticket.status === TicketStatus.EN_PROCESO && ticket.attentionType == TicketAttentionType.EN_SITIO) || ticket.status == TicketStatus.ON_SITE)
+      ? `<div class="mt-4 p-4 bg-blue-50 rounded-xl text-blue-800 text-sm border border-blue-100 flex items-center gap-4"><i class="fa-solid fa-truck-fast text-2xl text-blue-500"></i> El técnico se encuentra en camino para atender el reporte en sitio.</div>`
+      : '';
 
-    const reportAttentRemote =
-      ticket.status == TicketStatus.IN_REMOTE
-        ? `<p>El técnico está atendiendo su reporte de manera remota.</p>`
-        : '';
+    const reportAttentRemote = ticket.status == TicketStatus.IN_REMOTE
+      ? `<div class="mt-4 p-4 bg-purple-50 rounded-xl text-purple-800 text-sm border border-purple-100 flex items-center gap-4"><i class="fa-solid fa-headset text-2xl text-purple-500"></i> El técnico está atendiendo su reporte de manera remota.</div>`
+      : '';
 
-    const reportOnPause =
-      ticket.status === TicketStatus.EN_ESPERA
-        ? `<p>El ticket se encuentra actualmente en espera.</p>`
-        : '';
+    const reportOnPause = ticket.status === TicketStatus.EN_ESPERA
+      ? `<div class="mt-4 p-4 bg-amber-50 rounded-xl text-amber-800 text-sm border border-amber-100 flex items-center gap-4"><i class="fa-solid fa-pause text-2xl text-amber-500"></i> El ticket se encuentra actualmente en espera.</div>`
+      : '';
 
     const fechaSolicitud = ticket.createdAt;
     const fechaResolucion = ticket.resolvedAt;
-    const tiempoLaboral = this.calcularTiempoLaboralRelativo(
-      fechaSolicitud,
-      fechaResolucion,
-    );
+    const tiempoLaboral = this.calcularTiempoLaboralRelativo(fechaSolicitud, fechaResolucion);
 
-    const timeResolution =
-      tiempoLaboral !== ''
-        ? `<p><strong>Tiempo de resolución:</strong> ${tiempoLaboral}</p>`
-        : '';
+    const timeResolution = tiempoLaboral !== ''
+      ? `<div class="flex flex-col"><span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Tiempo de resolución</span><span class="text-slate-800 font-medium">${tiempoLaboral}</span></div>`
+      : '';
 
     return `
-  <!DOCTYPE html>
- <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seguimiento de Ticket ${ticket.ticketNumber}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="shortcut icon" href="https://1.bp.blogspot.com/-rK4-Xp5tY_U/X_4ZjWc4cqI/AAAAAAAABbQ/HYMo-KaYvOwAUV0ZD0ORfD6NOrF-KRr0wCLcBGAsYHQ/s1431/Propapel-logo.png" type="image/png" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Outfit', sans-serif; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    @keyframes blob {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .animate-blob { animation: blob 7s infinite; }
+    .animation-delay-2000 { animation-delay: 2s; }
+    .animation-delay-4000 { animation-delay: 4s; }
+    .step-active { animation: pulseBorder 2s infinite; }
+    @keyframes pulseBorder {
+      0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+    }
+    .whatsapp-float {
+        animation: float-btn 3s ease-in-out infinite;
+    }
+    @keyframes float-btn {
+        0% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen flex text-left p-4 sm:p-8 relative overflow-x-hidden">
+  
+  <div class="fixed top-0 left-0 w-[500px] h-[500px] bg-purple-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-blob"></div>
+  <div class="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-blob animation-delay-2000"></div>
+  <div class="fixed -bottom-20 left-20 w-[500px] h-[500px] bg-pink-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-blob animation-delay-4000"></div>
 
- <head>
-     <title>Seguimiento de ticket ${ticket.ticketNumber}</title>
-     <link rel="shortcut icon" href="https://1.bp.blogspot.com/-rK4-Xp5tY_U/X_4ZjWc4cqI/AAAAAAAABbQ/HYMo-KaYvOwAUV0ZD0ORfD6NOrF-KRr0wCLcBGAsYHQ/s1431/Propapel-logo.png" type="image/png" />
-     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]>
-<xml><w:WordDocument xmlns:w="urn:schemas-microsoft-com:office:word"><w:DontUseAdvancedTypographyReadingMail/></w:WordDocument>
-<o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml>
-<![endif]--><!--[if !mso]><!--><!--<![endif]-->
-     <style>
-         * {
-             box-sizing: border-box;
-         }
+  <div class="glass-card w-full max-w-3xl mx-auto rounded-[2rem] overflow-hidden relative z-10 border border-white/20 transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/20 self-start">
+    
+    <div class="bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-slate-800">
+          Ticket <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">#${ticket.ticketNumber}</span>
+        </h1>
+        <p class="text-slate-500 mt-2 flex items-center justify-center sm:justify-start gap-2 text-sm md:text-base">
+          <i class="fa-solid fa-building"></i> ${ticket.cliente?.razonSocial || 'Cliente General'}
+        </p>
+      </div>
+      <div class="shrink-0 bg-white p-3 rounded-2xl shadow-sm border border-slate-100 text-center">
+         <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/i6a/nv1/gin/Propapel-logo%20%281%29.png" alt="Propapel" class="h-10 sm:h-12 w-auto object-contain mx-auto">
+      </div>
+    </div>
 
-         body {
-             font-family: Arial, sans-serif;
-             background-color: #3131f0ff;
-             margin: 0;
-             padding: 0;
-             min-height: 100vh;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-         }
+    <div class="p-6 sm:p-8">
+      
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-slate-50/80 rounded-2xl border border-slate-100/80 backdrop-blur-sm text-left">
+        <div class="flex flex-col">
+          <span class="text-xs text-slate-500 uppercase tracking-wider font-bold">Fecha Solicitud</span>
+          <span class="text-slate-800 font-medium">${ticket.createdAt.toLocaleDateString()}</span>
+        </div>
+        ${technicalAssignment}
+        ${resolveDate}
+        ${timeResolution}
+      </div>
 
-         .container {
-             max-width: 700px;
-             width: 100%;
-             background: white;
-             padding: 30px;
-             text-align: center;
-         }
+      <div class="my-6">
+        ${reportAttentInPlace}
+        ${reportAttentRemote}
+        ${reportOnPause}
+      </div>
 
-         .header-image {
-             margin-bottom: 20px;
-             text-align: center;
-         }
+      <div class="mt-12 mb-8 bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest mb-10 text-center">Progreso del Servicio</h3>
+        <div class="relative flex justify-between items-center w-full px-2 lg:px-6">
+          
+          <div class="absolute left-6 right-6 top-[28px] sm:top-[32px] h-1.5 bg-slate-100 rounded-full z-0 overflow-hidden hidden sm:block"></div>
+          
+          ${Object.values(steps).map((step: any) => `
+            <div class="relative z-10 flex flex-col items-center group flex-1">
+              <div class="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-full text-2xl shadow-md transition-all duration-300 
+                ${step.class === 'done' ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-green-500/40' :
+        step.class === 'active' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white step-active' :
+          'bg-white text-slate-300 border-2 border-slate-200'}">
+                ${step.icon}
+              </div>
+              <span class="mt-4 text-xs sm:text-sm text-center ${step.class === 'active' || step.class === 'done' ? 'font-bold text-slate-800' : 'font-medium text-slate-400'}">
+                ${step.label}
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
 
-         .header-image img {
-             max-width: 150px;
-             margin: 0 auto;
-         }
+      ${resolvedMessage}
 
-         h2 {
-             color: #1a73e8;
-             margin-bottom: 20px;
-         }
+    </div>
 
-         p {
-             font-size: 15px;
-             margin: 6px 0;
-         }
+    <div class="bg-slate-900 border-t border-slate-800 p-8 text-center relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 mix-blend-overlay"></div>
+      
+      <div class="relative z-10">
+        <h4 class="text-white text-lg font-medium mb-6">¿Necesitas suministros para tu oficina?</h4>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="https://www.propapel.mx" target="_blank" class="px-6 py-3 bg-white text-slate-900 hover:bg-slate-100 text-sm font-bold rounded-full transition-all shadow-lg hover:shadow-white/20 flex items-center gap-2 transform hover:-translate-y-0.5">
+            <i class="fa-solid fa-print text-indigo-600"></i> Impresoras
+          </a>
+          <a href="https://www.propapel.mx" target="_blank" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white text-sm font-medium border border-white/20 rounded-full transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+            <i class="fa-solid fa-box-open"></i> Ver catálogo
+          </a>
+        </div>
+        <p class="mt-8 text-slate-500 text-xs tracking-wide">ServiceDesk | SAI | Área de Soporte Técnico &copy; Propapel 2026</p>
+      </div>
+    </div>
+  </div>
 
-         .progress-container {
-             display: flex;
-             justify-content: space-between;
-             position: relative;
-             margin: 30px 0;
-         }
-
-         .progress-container::before {
-             content: '';
-             position: absolute;
-             top: 50%;
-             left: 0;
-             height: 4px;
-             width: 100%;
-             background: #ddd;
-             z-index: 0;
-             transform: translateY(-50%);
-         }
-
-         .step {
-             position: relative;
-             text-align: center;
-             z-index: 1;
-             flex: 1;
-         }
-
-         .circle {
-             width: 30px;
-             height: 30px;
-             border-radius: 50%;
-             background: #ddd;
-             margin: 0 auto;
-             line-height: 30px;
-             color: #fff;
-             font-weight: bold;
-         }
-
-         .step p {
-             margin-top: 8px;
-             font-size: 14px;
-             color: #999;
-             font-weight: normal;
-         }
-
-         .step.done .circle {
-             background: #00C853;
-         }
-
-         .step.active .circle {
-             background: #4B0082;
-         }
-
-         .step.done p,
-         .step.active p {
-             color: #4B0082;
-             font-weight: bold;
-         }
-
-         .whatsapp-button {
-             position: fixed;
-             bottom: 20px;
-             right: 20px;
-             background-color: #25D366;
-             color: white;
-             padding: 12px 18px;
-             border-radius: 50px;
-             text-decoration: none;
-             font-weight: bold;
-             font-size: 14px;
-             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-             z-index: 999;
-             transition: background 0.3s;
-         }
-
-         .whatsapp-button:hover {
-             background-color: #1ebd5a;
-         }
-
-         /* Botón WhatsApp */
-         .btn-whats {
-             background-color: #25D366;
-             color: white;
-             width: 25vw;
-             height: 25vw;
-             max-width: 60px;
-             max-height: 60px;
-             text-decoration: none;
-             border-radius: 50%;
-             padding: 0;
-             display: flex;
-             justify-content: center;
-             align-items: center;
-             position: fixed;
-             bottom: 4vh;
-             right: 1vw;
-             transition: all 0.6s;
-             z-index: 1;
-         }
-
-         .btn-whats:hover {
-             box-shadow: 0 0 20px rgba(0, 0, 0, 0.562);
-         }
-
-         .pulse {
-             animation: pulse 1s infinite;
-         }
-
-         .btn-whats i {
-             font-size: 40px;
-         }
-
-         @keyframes pulse {
-             50% {
-                 transform: scale(1.1);
-             }
-         }
-
-         a[x-apple-data-detectors] {
-             color: inherit !important;
-             text-decoration: inherit !important;
-         }
-
-         #MessageViewBody a {
-             color: inherit;
-             text-decoration: none;
-         }
-
-         p {
-             line-height: inherit
-         }
-
-         .desktop_hide,
-         .desktop_hide table {
-             mso-hide: all;
-             display: none;
-             max-height: 0px;
-             overflow: hidden;
-         }
-
-         .image_block img+div {
-             display: none;
-         }
-
-         sup,
-         sub {
-             font-size: 75%;
-             line-height: 0;
-         }
-
-         .tracking-container {
-             display: flex;
-             justify-content: space-between;
-             align-items: center;
-             position: relative;
-             margin: 30px 0;
-         }
-
-         .tracking-container::before {
-             content: '';
-             position: absolute;
-             top: 25px;
-             left: 15px;
-             right: 15px;
-             height: 4px;
-             background: #ddd;
-             z-index: 0;
-         }
-
-         .tracking-step {
-             display: flex;
-             flex-direction: column;
-             align-items: center;
-             position: relative;
-             z-index: 1;
-             width: 70px;
-         }
-
-         .tracking-step .icon {
-             width: 50px;
-             height: 50px;
-             border-radius: 50%;
-             background: #ddd;
-             display: flex;
-             justify-content: center;
-             align-items: center;
-             font-size: 24px;
-             color: white;
-             margin-bottom: 5px;
-         }
-
-         .tracking-step.done .icon {
-             background: #00C853;
-         }
-
-         .tracking-step.active .icon {
-             background: #0067ddff;
-         }
-
-         .tracking-step .label {
-             font-size: 12px;
-             color: #999;
-             text-align: center;
-         }
-
-         .tracking-step.done .label,
-         .tracking-step.active .label {
-             font-weight: bold;
-             color: #4B0082;
-         }
-
-         @media (max-width:670px) {
-             .mobile_hide {
-                 display: none;
-             }
-
-             .row-content {
-                 width: 100% !important;
-             }
-
-             .stack .column {
-                 width: 100%;
-                 display: block;
-             }
-
-             .mobile_hide {
-                 min-height: 0;
-                 max-height: 0;
-                 max-width: 0;
-                 overflow: hidden;
-                 font-size: 0px;
-             }
-
-             .desktop_hide,
-             .desktop_hide table {
-                 display: table !important;
-                 max-height: none !important;
-             }
-         }
-     </style><!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
- </head>
-
- <body class="body" style="background-color: #3d1554; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
-     <table class="nl-container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #3d1554;">
-
-         <tbody>
-
-             <tr>
-                 <td>
-                     <!-- TOPBAR -->
-                     <!-- TOPBAR -->
-                     <table class="row row-2" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background: #FFFFFF;">
-                         <tbody>
-                             <tr>
-                                 <td>
-                                     <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 650px; margin: 0 auto; color:#000;">
-                                         <tbody>
-                                             <tr>
-                                                 <!-- Logo -->
-                                                 <td class="column column-1" width="40%" style="padding:10px; text-align:left; vertical-align:middle;">
-                                                     <a href="https://www.propapel.mx" target="_blank" style="text-decoration:none;">
-                                                         <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/i6a/nv1/gin/Propapel-logo%20%281%29.png" alt="Logo Propapel" style="max-width:100px; display:block;">
-                                                     </a>
-                                                 </td>
-
-                                                 <!-- Navegación -->
-                                                 <td class="column column-2" width="60%" style="padding:10px; text-align:right; vertical-align:middle; font-family: Arial, sans-serif;">
-                                                     <a href="#estado" style="color:#00388c; text-decoration:none; font-size:14px; margin-left:20px;">Estado del ticket</a>
-                                                     <a href="#servicios" style="color:#00388c; text-decoration:none; font-size:14px; margin-left:20px;">Servicios</a>
-                                                     <a href="#contacto" style="color:#00388c; text-decoration:none; font-size:14px; margin-left:20px;">Contacto</a>
-                                                 </td>
-
-                                             </tr>
-                                         </tbody>
-                                     </table>
-                                 </td>
-                             </tr>
-                         </tbody>
-                     </table>
-
-                     <table id="estado" class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color:#FFFFFF;">
-                         <tbody>
-                             <tr>
-                                 <td>
-                                     <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
-                                         <tbody>
-                                             <tr>
-                                                 <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; border-left: 4px solid transparent; border-right: 4px solid transparent; padding-bottom: 60px; padding-top: 55px; vertical-align: top;">
-                                                     <div class="container">
-
-                                                         <h2>Seguimiento de tu Ticket</h2>
-
-                                                         <p><strong>Número de Ticket:</strong> ${ticket.ticketNumber}</p>
-                                                         <p><strong>Cliente:</strong> ${ticket.cliente?.razonSocial || '---'}</p>
-                                                         <p><strong>Fecha de Creación:</strong> ${ticket.createdAt.toLocaleDateString()}</p>
-                                                         ${technicalAssignment}
-                                                         ${reportAttentInPlace}
-                                                         ${reportAttentRemote}
-
-                                                         ${reportOnPause}
-                                                         ${resolveDate}
-                                                         ${timeResolution}
-
-
-                                                         <div class="tracking-container">
-                                                             ${Object.values(
-      steps,
-    )
-        .map(
-          (
-            step,
-            index,
-          ) => `
-                                                             <div class="tracking-step ${step.class}">
-                                                                 <div class="icon">${step.icon}</div>
-                                                                 <div class="label">${step.label}</div>
-                                                             </div>
-                                                             `,
-        )
-        .join('')}
-                                                         </div>
-
-
-                                                         <div class="header-image">
-                                                             <img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" alt="Soporte">
-                                                         </div>
-                                                         ${resolvedMessage}
-
-                                                     </div>
-
-
-
-                                                 </td>
-                                             </tr>
-                                         </tbody>
-                                     </table>
-                                 </td>
-                             </tr>
-                         </tbody>
-                     </table>
-
-                     <table id="servicios" class="row row-5" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color:#FFFFFF;">
-                         <tbody>
-                             <tr>
-                                 <td>
-                                     <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #57366e; color: #000000; width: 650px; margin: 0 auto;" width="650">
-                                         <tbody>
-                                             <tr>
-                                                 <td class="column column-1" width="58.333333333333336%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #FFFFFF; padding-bottom: 55px; padding-left: 30px; padding-right: 30px; padding-top: 55px; vertical-align: middle;">
-                                                     <table class="text_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
-                                                         <tr>
-                                                             <td class="pad" style="padding-bottom:20px;padding-left:25px;padding-right:25px;padding-top:10px;">
-                                                                 <div style="font-family: sans-serif">
-                                                                     <div class style="font-size: 12px; font-family: Poppins, Arial, Helvetica, sans-serif; mso-line-height-alt: 18px; color: #1a73e8; line-height: 1.5;">
-                                                                         <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 21px;">¿Sabías que también vendemos impresoras, consumibles y productos de oficina?<br>👉 Descubre todo lo que tenemos para ti.</p>
-                                                                     </div>
-                                                                 </div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                     <table class="button_block block-2" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-                                                         <tr>
-                                                             <td class="pad">
-                                                                 <div class="alignment" align="center"><a href="https://www.propapel.mx/index.php?route=information/information&information_id=24" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
-<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/index.php?route=information/information&information_id=24"  style="height:57px;width:230px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
-<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
-<w:anchorlock/>
-<v:textbox inset="0px,0px,0px,0px">
-<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
-<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; Impresoras&nbsp;&nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                     <table class="button_block block-3" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-                                                         <tr>
-                                                             <td class="pad">
-                                                                 <div class="alignment" align="center"><a href="https://www.propapel.mx/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
-<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="https://www.propapel.mx/"  style="height:57px;width:233px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
-<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
-<w:anchorlock/>
-<v:textbox inset="0px,0px,0px,0px">
-<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
-<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 35px; padding-right: 35px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>&nbsp; &nbsp; Otros productos&nbsp; &nbsp;</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                     <table class="button_block block-4" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-                                                         <tr>
-                                                             <td class="pad">
-                                                                 <div class="alignment" align="center"><a href="http://www.example.com/" target="_blank" style="color:#ffffff;text-decoration:none;"><!--[if mso]>
-<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"  href="http://www.example.com/"  style="height:57px;width:229px;v-text-anchor:middle;" arcsize="48%" fillcolor="#00388c">
-<v:stroke dashstyle="Solid" weight="2px" color="#795E8B"/>
-<w:anchorlock/>
-<v:textbox inset="0px,0px,0px,0px">
-<center dir="false" style="color:#ffffff;font-family:sans-serif;font-size:18px">
-<![endif]--><span class="button" style="background-color: #00388c; border-bottom: 2px solid #795E8B; border-left: 2px solid #795E8B; border-radius: 30px; border-right: 2px solid #795E8B; border-top: 2px solid #795E8B; color: #ffffff; display: inline-block; font-family: Poppins, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: undefined; mso-border-alt: none; padding-bottom: 18px; padding-top: 18px; padding-left: 60px; padding-right: 60px; text-align: center; width: auto; word-break: keep-all; letter-spacing: normal;"><span style="word-break: break-word;"><span style="word-break: break-word; line-height: 21.599999999999998px;" data-mce-style>Cookie Policy</span></span></span><!--[if mso]></center></v:textbox></v:roundrect><![endif]--></a></div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                     <table class="paragraph_block block-5" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
-                                                         <tr>
-                                                             <td class="pad" style="padding-bottom:10px;padding-left:25px;padding-right:25px;padding-top:20px;">
-                                                                 <div style="color:#1a73e8;font-family:Poppins, Arial, Helvetica, sans-serif;font-size:16px;line-height:1.5;text-align:center;mso-line-height-alt:24px;">
-                                                                     <p style="margin: 0; word-break: break-word;">Si tienes alguna duda, no dudes en <a href="mailto:ventassai@propapel.com.mx" target="_blank" title="ventassai@propapel.com.mx" style="text-decoration: underline; color: #1a73e8;" rel="noopener">contactarnos</a>. Estamos para ayudarte.</p>
-                                                                 </div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                 </td>
-                                                 <td class="column column-2" width="41.666666666666664%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #ffffff; padding-bottom: 5px; padding-top: 5px; vertical-align: middle;">
-                                                     <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-                                                         <tr>
-                                                             <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
-                                                                 <div class="alignment" align="center">
-                                                                     <div style="max-width: 270.833px;"><img src="https://bbecbbde2b.imgdist.com/pub/bfra/zigpwtii/zik/fdi/hdb/ChatGPT_Image_21_jul_2025__13_01_18-removebg-preview.png" style="display: block; height: auto; border: 0; width: 100%;" width="270.833" alt title height="auto"></div>
-                                                                 </div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                 </td>
-                                             </tr>
-                                         </tbody>
-                                     </table>
-                                 </td>
-                             </tr>
-                         </tbody>
-                     </table>
-                     <table id="contacto" class="row row-6" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #FFFFFF;">
-                         <tbody>
-                             <tr>
-                                 <td>
-                                     <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; color: #000000; width: 650px; margin: 0 auto;" width="650">
-                                         <tbody>
-                                             <tr>
-                                                 <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top;">
-                                                     <table class="paragraph_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
-                                                         <tr>
-                                                             <td class="pad" style="padding-bottom:20px;padding-left:10px;padding-right:10px;padding-top:15px;">
-                                                                 <div style="color:#1a73e8;font-family:Poppins, Arial, Helvetica, sans-serif;font-size:12px;line-height:1.5;text-align:center;mso-line-height-alt:18px;">
-                                                                     <p style="margin: 0;">ServiceDesk | Departamento de SAI | Área de Soporte Técnico. <br>© Propapel 2025. Todos los derechos reservados.</p>
-                                                                 </div>
-                                                             </td>
-                                                         </tr>
-                                                     </table>
-                                                 </td>
-                                             </tr>
-                                         </tbody>
-                                     </table>
-                                 </td>
-                             </tr>
-                         </tbody>
-                     </table>
-                 </td>
-             </tr>
-         </tbody>
-     </table><!-- End -->
-     <a class="btn-whats pulse" href="https://wa.me/${numberContact}?text=Hola,%20necesito%20ayuda%20con%20mi%20ticket%20%23${ticket.id}" target="_blank">
-         <i class="fab fa-whatsapp"></i>
-     </a>
- </body>
-
- </html>
+  <a href="https://wa.me/${numberContact}?text=Hola,%20necesito%20ayuda%20con%20mi%20ticket%20%23${ticket.ticketNumber}" target="_blank" 
+     class="fixed bottom-6 right-6 w-16 h-16 bg-[#25D366] text-white rounded-full flex items-center justify-center text-3xl shadow-[0_8px_30px_rgba(37,211,102,0.4)] hover:shadow-[0_15px_40px_rgba(37,211,102,0.6)] z-50 whatsapp-float transform transition-transform hover:scale-110">
+    <i class="fa-brands fa-whatsapp"></i>
+  </a>
+</body>
+</html>
   `;
   }
+
+
+
 
   getProgressSteps(status: TicketStatus) {
     const steps = {
@@ -2606,5 +2452,33 @@ export class TicketService {
     }
 
     return steps;
+  }
+
+  private async notifyTechnicians(branchId: number, ticket: Ticket) {
+    try {
+      const technicians = await this.userRepository
+        .createQueryBuilder('user')
+        .innerJoin('user.sucursales', 'sucursal')
+        .innerJoin('user.roles', 'rol')
+        .where('sucursal.id = :branchId', { branchId })
+        .andWhere('rol.id = :roleId', { roleId: 5 })
+        .andWhere('user.id != :creatorId', { creatorId: ticket.createdBy?.id || 0 })
+        .andWhere('user.fcmToken IS NOT NULL')
+        .andWhere('user.isDelete = false')
+        .getMany();
+
+      const tokens = technicians.map((tech) => tech.fcmToken).filter(token => token !== '');
+
+      if (tokens.length > 0) {
+        await this.firebaseService.sendMulticastNotification(
+          tokens,
+          '¡Nuevo Ticket Creado!',
+          `Se ha creado el ticket #${ticket.ticketNumber} en la sucursal de tu área.`,
+          { ticketId: ticket.id.toString(), type: 'NEW_TICKET' }
+        );
+      }
+    } catch (error) {
+      console.error('Error al notificar a los técnicos:', error);
+    }
   }
 }

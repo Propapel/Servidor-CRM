@@ -111,4 +111,7 @@ export class User {
     inverseJoinColumn: { name: 'id_permission' },
   })
   permissions: Permission[];
+
+  @Column({ nullable: true, type: 'text' })
+  fcmToken: string;
 }

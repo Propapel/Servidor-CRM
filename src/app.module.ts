@@ -48,6 +48,7 @@ import { FacturacionRentaModule } from './facturacion-renta/facturacion-renta.mo
 import { TicketStatusModule } from './ticket-status/ticket-status.module';
 import { TypeOfReportModule } from './type-of-report/type-of-report.module';
 import { EquipmentReplacementModule } from './equipment-replacement/equipment-replacement.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -108,7 +109,8 @@ import { EquipmentReplacementModule } from './equipment-replacement/equipment-re
     FacturacionRentaModule,
     TicketStatusModule,
     TypeOfReportModule,
-    EquipmentReplacementModule
+    EquipmentReplacementModule,
+    FirebaseModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

@@ -91,7 +91,7 @@ export class AuthService {
       puesto: userFound.puesto,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      permissions,
+      permissions: permissions,
       clients: userFound.assignedClients,
       roles: userFound.roles,
       sucursales: userFound.sucursales[0],
@@ -105,7 +105,10 @@ export class AuthService {
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
-    const user = await this.usersRepository.findOneBy({ id: Number(userId) });
+    const user = await this.usersRepository.findOne({
+      where: { id: Number(userId) },
+      relations: ['roles', 'roles.permissions', 'permissions', 'sucursales', 'clients', 'assignedClients'],
+    });
     if (!user || !user.refreshToken)
       return new HttpException('Acceso denegado', HttpStatus.FORBIDDEN);
     const refreshTokenMatches = await argon2.verify(
@@ -116,7 +119,26 @@ export class AuthService {
       return new HttpException('Acceso denegado', HttpStatus.FORBIDDEN);
     const tokens = await this.getTokens(user.id.toString(), user.name);
     await this.updateRefreshToken(user.id.toString(), tokens.refreshToken);
-    return tokens;
+
+    // Devolver la misma estructura que en el login para que el front no falle al parsear
+    const permissions = this.getPermissions(user);
+    const accessTokenExpirationTimestamp = Math.floor(Date.now() / 1000) + 3600;
+
+    return {
+      puesto: user.puesto,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      permissions,
+      clients: user.assignedClients,
+      roles: user.roles,
+      sucursales: user.sucursales ? user.sucursales[0] : null,
+      accessTokenExpirationTimestamp,
+      userId: user.id,
+      lastname: user.lastname,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    };
   }
 
   async updateRefreshToken(userId: string, refreshToken: string) {

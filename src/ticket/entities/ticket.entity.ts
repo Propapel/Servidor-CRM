@@ -59,8 +59,11 @@ export class Ticket {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, { nullable: false })
+  @ManyToOne(() => User, { nullable: true })
   createdBy: User;
+
+  @Column({ default: false })
+  isPublic: boolean;
 
   @Column()
   nameReported: string;

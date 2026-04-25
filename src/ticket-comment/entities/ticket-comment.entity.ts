@@ -10,8 +10,14 @@ export class TicketComment {
   @ManyToOne(() => Ticket, (ticket) => ticket.comments)
   ticket: Ticket;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   author: User;
+
+  @Column({ default: false })
+  isPublic: boolean;
+
+  @Column({ nullable: true })
+  publicName: string;
 
   @Column()
   content: string;

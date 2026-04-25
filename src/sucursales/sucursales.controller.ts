@@ -14,6 +14,11 @@ export class SucursalesController {
     return this.sucursalesService.create(createSucursaleDto);
   }
 
+  @Get('public/findAll')
+  findAllPublic() {
+    return this.sucursalesService.findAll();
+  }
+
   @UseGuards(AccessTokenGuard)
   @Get('findAll')
   findAll() {

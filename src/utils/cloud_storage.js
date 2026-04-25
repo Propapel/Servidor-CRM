@@ -1,24 +1,14 @@
-const { Storage } = require('@google-cloud/storage');
-const { format } = require('util');
+const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
 
-const storage = new Storage({
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  credentials: {
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    private_key: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-  },
-});
-
-const bucket = storage.bucket(`${process.env.FIREBASE_PROJECT_ID}.appspot.com`);
-
 /**
- * Subir archivo desde buffer (compatible con Vercel serverless)
+ * Subir archivo desde buffer usando Firebase Admin SDK (compatible con Vercel serverless)
  */
 const uploadFromBuffer = async (buffer, pathImage, contentType = 'image/png') => {
   if (!pathImage) throw new Error('Path requerido');
 
   const uuid = uuidv4();
+  const bucket = admin.storage().bucket();
   const fileUpload = bucket.file(pathImage);
 
   try {
@@ -32,9 +22,7 @@ const uploadFromBuffer = async (buffer, pathImage, contentType = 'image/png') =>
       },
     });
 
-    const url = format(
-      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileUpload.name)}?alt=media&token=${uuid}`,
-    );
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(pathImage)}?alt=media&token=${uuid}`;
     console.log('URL DE CLOUD STORAGE', url);
     return url;
   } catch (error) {
@@ -44,12 +32,13 @@ const uploadFromBuffer = async (buffer, pathImage, contentType = 'image/png') =>
 };
 
 /**
- * Subir archivo desde req.file (ej: multer) (compatible con Vercel serverless)
+ * Subir archivo desde req.file (ej: multer) usando Firebase Admin SDK
  */
 const uploadFromFile = async (file, pathImage, contentType = 'image/png') => {
   if (!pathImage) throw new Error('Path requerido');
 
   const uuid = uuidv4();
+  const bucket = admin.storage().bucket();
   const fileUpload = bucket.file(pathImage);
 
   try {
@@ -63,9 +52,7 @@ const uploadFromFile = async (file, pathImage, contentType = 'image/png') => {
       },
     });
 
-    const url = format(
-      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileUpload.name)}?alt=media&token=${uuid}`,
-    );
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(pathImage)}?alt=media&token=${uuid}`;
     console.log('URL DE CLOUD STORAGE', url);
     return url;
   } catch (error) {

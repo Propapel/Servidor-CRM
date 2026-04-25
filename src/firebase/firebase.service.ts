@@ -23,6 +23,7 @@ export class FirebaseService implements OnModuleInit {
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
             privateKey,
           }),
+          storageBucket: `${process.env.FIREBASE_PROJECT_ID}.appspot.com`,
         });
         this.logger.log('Firebase Admin SDK initialized successfully');
       } catch (error) {

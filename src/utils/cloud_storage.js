@@ -4,11 +4,14 @@ const { v4: uuidv4 } = require('uuid');
 const uuid = uuidv4();
 
 const storage = new Storage({
-  projectId: "prosales-c49e5",
-  keyFilename: './serviceAccountKey.json'
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  credentials: {
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    private_key: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  },
 });
 
-const bucket = storage.bucket("gs://prosales-c49e5.appspot.com/");
+const bucket = storage.bucket(`gs://${process.env.FIREBASE_PROJECT_ID}.appspot.com/`);
 
 /**
  * Subir archivo desde buffer

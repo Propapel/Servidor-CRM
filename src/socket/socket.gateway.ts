@@ -10,6 +10,9 @@ import { Ticket } from '../ticket/entities/ticket.entity';
 
 @WebSocketGateway({
   path: '/tickets',
+  cors: {
+    origin: '*', 
+  }
 })
 export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayDisconnect<WebSocket> {
   @WebSocketServer() server: Server;
@@ -18,15 +21,28 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
    
   private readonly logger = new Logger(SocketGateway.name);
 
-  handleConnection(client: WebSocket) {
-    this.logger.log('Cliente conectado al WebSocket de tickets');
+  afterInit(server: Server) {
+    // Intervalo de Heartbeat: Cada 25 segundos para engañar al timeout de Railway
+    setInterval(() => {
+      server.clients.forEach((client: any) => {
+        if (client.isAlive === false) return client.terminate();
+        client.isAlive = false;
+        client.ping();
+      });
+    }, 25000);
+  }
+
+ handleConnection(client: any) {
+    this.logger.log('Cliente conectado al WebSocket');
+    client.isAlive = true;
+    client.on('pong', () => { client.isAlive = true; });
   }
 
   handleDisconnect(client: WebSocket) {
-    this.logger.log('Cliente desconectado del WebSocket de tickets');
+    this.logger.log('Cliente desconectado');
   }
 
-  private broadcast(data: object) {
+ private broadcast(data: object) {
     const message = JSON.stringify(data);
     this.server.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
@@ -34,7 +50,6 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
       }
     });
   }
-
   emitNewTicket(ticket: Ticket) {
     this.broadcast({
       type: 'NEW_TICKET',

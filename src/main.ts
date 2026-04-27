@@ -15,23 +15,26 @@ async function createApp(): Promise<INestApplication> {
 
   const app = await NestFactory.create(AppModule);
   
-  // Configuración de CORS mejorada para incluir tu nueva URL de Railway
+  // CORS: Permitimos todo en producción para evitar bloqueos de Sockets
   app.enableCors({
     origin: [
       'https://www.mesadeayudasaimid.org',
       'https://mesadeayudasaimid.org',
       'https://propapel.vercel.app',
-      'https://servidor-crm-production.up.railway.app', // Agregamos la URL de Railway
+      'https://servidor-crm-production.up.railway.app',
       'http://localhost:5173',
       'http://localhost:3002',
     ],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, x-api-key',
+    credentials: true,
   });
 
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
   app.use(bodyParser.json({ limit: '100mb' }));
   app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
+  
+  // IMPORTANTE: El adaptador de WebSocket debe estar aquí
   app.useWebSocketAdapter(new WsAdapter(app));
 
   await app.init();
@@ -40,26 +43,21 @@ async function createApp(): Promise<INestApplication> {
 }
 
 /**
- * Lógica para Servidores Tradicionales / Containers (Railway)
+ * Lógica para Railway (Container Long-running)
  */
 async function startServer() {
   const app = await createApp();
-  
-  // Railway inyecta dinámicamente la variable PORT
   const port = process.env.PORT || 3002;
-  
-  // IMPORTANTE: '0.0.0.0' permite conexiones externas en Railway
   const host = '0.0.0.0'; 
 
   await app.listen(port, host);
-  console.log(`🚀 Servidor CRM ejecutándose en: http://${host}:${port}`);
+  console.log(`🚀 Servidor CRM y WebSockets corriendo en puerto: ${port}`);
 }
 
-// Arrancamos el servidor directamente
 startServer();
 
 /**
- * Handler para Vercel Serverless (Opcional, se mantiene por compatibilidad)
+ * Handler para Vercel (Serverless)
  */
 export default async (req: Request, res: Response) => {
   const app = await createApp();

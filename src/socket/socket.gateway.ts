@@ -11,14 +11,14 @@ import { Ticket } from '../ticket/entities/ticket.entity';
 @WebSocketGateway({
   path: '/tickets',
   cors: {
-    origin: '*', 
+    origin: '*',
   }
 })
 export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayDisconnect<WebSocket> {
   @WebSocketServer() server: Server;
 
-   private pingInterval: NodeJS.Timeout;
-   
+  private pingInterval: NodeJS.Timeout;
+
   private readonly logger = new Logger(SocketGateway.name);
 
   afterInit(server: Server) {
@@ -32,7 +32,7 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
     }, 25000);
   }
 
- handleConnection(client: any) {
+  handleConnection(client: any) {
     this.logger.log('Cliente conectado al WebSocket');
     client.isAlive = true;
     client.on('pong', () => { client.isAlive = true; });
@@ -42,7 +42,7 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
     this.logger.log('Cliente desconectado');
   }
 
- private broadcast(data: object) {
+  private broadcast(data: object) {
     const message = JSON.stringify(data);
     this.server.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {

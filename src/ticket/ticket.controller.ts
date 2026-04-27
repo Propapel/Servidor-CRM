@@ -37,6 +37,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateTicketPlazaDto } from './dto/create-ticket-playa.dto';
 import { RateDifficultyTicketDto } from './dto/rating_difficuty_ticket.dto';
 import { PaginationDto } from './dto/pagination.dto';
+import { TechnicianKpiQueryDto } from './dto/technician-kpi-query.dto';
 
 @Controller('ticket')
 export class TicketController {
@@ -458,5 +459,24 @@ export class TicketController {
   async getDashboardStats(@Param('id', ParseIntPipe) id: number) {
     console.log(`Generando estadísticas ligeras para sucursal ID: ${id}`);
     return this.ticketService.findTicketsForStats(+id);
+  }
+
+  /**
+   * KPI de técnicos por sucursal.
+   * GET /ticket/kpi/technicians/:branchId?year=2026&month=4
+   * GET /ticket/kpi/technicians/:branchId?year=2026&week=17
+   * GET /ticket/kpi/technicians/:branchId?year=2026
+   */
+  @Get('kpi/technicians/:branchId')
+  getTechnicianKpi(
+    @Param('branchId', ParseIntPipe) branchId: number,
+    @Query() query: TechnicianKpiQueryDto,
+  ) {
+    return this.ticketService.getTechnicianKpiByBranch(
+      branchId,
+      query.year,
+      query.month,
+      query.week,
+    );
   }
 }

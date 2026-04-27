@@ -2481,4 +2481,79 @@ export class TicketService {
       console.error('Error al notificar a los técnicos:', error);
     }
   }
+
+  /**
+   * KPI de técnicos por sucursal.
+   * Devuelve cuántos tickets ha atendido cada técnico en la sucursal,
+   * filtrado por año y opcionalmente por mes o semana ISO.
+   */
+  async getTechnicianKpiByBranch(
+    branchId: number,
+    year: number,
+    month?: number,
+    week?: number,
+  ) {
+    const qb = this.ticketRepository
+      .createQueryBuilder('ticket')
+      .innerJoin('ticket.assigmentsTechnical', 'technician')
+      .innerJoin('ticket.sucursal', 'sucursal')
+      .select('technician.id', 'technicianId')
+      .addSelect('technician.name', 'technicianName')
+      .addSelect('COUNT(DISTINCT ticket.id)', 'totalTickets')
+      .addSelect(
+        `SUM(CASE WHEN ticket.status = 'RESUELTO' THEN 1 ELSE 0 END)`,
+        'resolved',
+      )
+      .addSelect(
+        `SUM(CASE WHEN ticket.status = 'EN_PROCESO' THEN 1 ELSE 0 END)`,
+        'inProgress',
+      )
+      .addSelect(
+        `SUM(CASE WHEN ticket.status = 'EN_ESPERA' THEN 1 ELSE 0 END)`,
+        'onHold',
+      )
+      .addSelect(
+        `SUM(CASE WHEN ticket.status = 'ASIGNADO' THEN 1 ELSE 0 END)`,
+        'assigned',
+      )
+      .addSelect(
+        `ROUND(AVG(CASE WHEN ticket.serviceRating IS NOT NULL THEN ticket.serviceRating END), 2)`,
+        'avgRating',
+      )
+      .where('sucursal.id = :branchId', { branchId })
+      .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('YEAR(ticket.createdAt) = :year', { year });
+
+    if (month) {
+      qb.andWhere('MONTH(ticket.createdAt) = :month', { month });
+    }
+
+    if (week) {
+      // WEEK(date, 3) usa ISO 8601 (lunes como primer día de la semana)
+      qb.andWhere('WEEK(ticket.createdAt, 3) = :week', { week });
+    }
+
+    qb.groupBy('technician.id')
+      .addGroupBy('technician.name')
+      .orderBy('totalTickets', 'DESC');
+
+    const raw = await qb.getRawMany();
+
+    return {
+      branchId,
+      year,
+      ...(month ? { month } : {}),
+      ...(week ? { week } : {}),
+      technicians: raw.map((r) => ({
+        id: Number(r.technicianId),
+        name: r.technicianName,
+        totalTickets: Number(r.totalTickets),
+        resolved: Number(r.resolved),
+        inProgress: Number(r.inProgress),
+        onHold: Number(r.onHold),
+        assigned: Number(r.assigned),
+        avgRating: r.avgRating ? Number(r.avgRating) : null,
+      })),
+    };
+  }
 }

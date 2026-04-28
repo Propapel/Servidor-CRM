@@ -38,11 +38,11 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
   handleConnection(client: any) {
     this.logger.log('Cliente conectado');
     client.isAlive = true;
-    // Escuchar el 'pong' nativo del protocolo
-    client.on('pong', () => {
-      client.isAlive = true;
-    });
-  }
+    // ENVÍA ESTO SÍ O SÍ:
+    client.send(JSON.stringify({ event: 'welcome', data: 'connected' }));
+    
+    client.on('pong', () => { client.isAlive = true; });
+}
 
   handleDisconnect(client: WebSocket) {
     this.logger.log('Cliente desconectado');

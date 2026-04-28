@@ -11,41 +11,22 @@ import { Ticket } from '../ticket/entities/ticket.entity';
 @WebSocketGateway({
   path: '/tickets',
   cors: {
-    origin: '*',
+    origin: '*', // En producción puedes limitarlo a tus dominios de ProPapel/Vercel
   }
 })
 export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayDisconnect<WebSocket> {
   @WebSocketServer() server: Server;
 
-  private pingInterval: NodeJS.Timeout;
-
+   private pingInterval: NodeJS.Timeout;
+   
   private readonly logger = new Logger(SocketGateway.name);
 
-  afterInit(server: Server) {
-    // Limpieza de conexiones muertas cada 30 segundos
-    setInterval(() => {
-      server.clients.forEach((client: any) => {
-        if (client.isAlive === false) {
-          this.logger.log('Cerrando conexión inactiva...');
-          return client.terminate();
-        }
-        client.isAlive = false;
-        client.ping(); // El servidor pregunta: "¿Estás ahí?"
-      });
-    }, 45000); 
+  handleConnection(client: WebSocket) {
+    this.logger.log('Cliente conectado al WebSocket de tickets');
   }
 
-  handleConnection(client: any) {
-    this.logger.log('Cliente conectado');
-    client.isAlive = true;
-    // ENVÍA ESTO SÍ O SÍ:
-    client.send(JSON.stringify({ event: 'welcome', data: 'connected' }));
-    
-    client.on('pong', () => { client.isAlive = true; });
-}
-
   handleDisconnect(client: WebSocket) {
-    this.logger.log('Cliente desconectado');
+    this.logger.log('Cliente desconectado del WebSocket de tickets');
   }
 
   private broadcast(data: object) {
@@ -56,6 +37,7 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
       }
     });
   }
+
   emitNewTicket(ticket: Ticket) {
     this.broadcast({
       type: 'NEW_TICKET',

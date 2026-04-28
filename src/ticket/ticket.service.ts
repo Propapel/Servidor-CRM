@@ -388,7 +388,7 @@ export class TicketService {
     paginationDto: PaginationDto,
     request: Request,
   ) {
-    const { limit, page } = paginationDto;
+    const { limit = 10, page = 1 } = paginationDto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.ticketRepository

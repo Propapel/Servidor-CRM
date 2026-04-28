@@ -22,20 +22,26 @@ export class SocketGateway implements OnGatewayConnection<WebSocket>, OnGatewayD
   private readonly logger = new Logger(SocketGateway.name);
 
   afterInit(server: Server) {
-    // Intervalo de Heartbeat: Cada 25 segundos para engañar al timeout de Railway
+    // Limpieza de conexiones muertas cada 30 segundos
     setInterval(() => {
       server.clients.forEach((client: any) => {
-        if (client.isAlive === false) return client.terminate();
+        if (client.isAlive === false) {
+          this.logger.log('Cerrando conexión inactiva...');
+          return client.terminate();
+        }
         client.isAlive = false;
-        client.ping();
+        client.ping(); // El servidor pregunta: "¿Estás ahí?"
       });
-    }, 25000);
+    }, 45000); 
   }
 
   handleConnection(client: any) {
-    this.logger.log('Cliente conectado al WebSocket');
+    this.logger.log('Cliente conectado');
     client.isAlive = true;
-    client.on('pong', () => { client.isAlive = true; });
+    // Escuchar el 'pong' nativo del protocolo
+    client.on('pong', () => {
+      client.isAlive = true;
+    });
   }
 
   handleDisconnect(client: WebSocket) {

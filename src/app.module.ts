@@ -64,8 +64,10 @@ import { FirebaseModule } from './firebase/firebase.module';
       synchronize: true,
       connectTimeout: 30000,
       extra: {
-        connectionLimit: 5,
+        connectionLimit: 10,
         connectTimeout: 30000,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
       },
     }),
     UsersModule,

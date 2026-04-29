@@ -165,10 +165,10 @@ export class TicketService {
     const idUser = sucursalToUser[sucursal.id];
 
     const cliente = await this.clientRepository.findOne({
-    where: {
-      id: idUser,
-    },
-  });
+      where: {
+        id: idUser,
+      },
+    });
 
     if (!cliente) {
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
@@ -350,6 +350,8 @@ export class TicketService {
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('ticket.sucursal', 'sucursal')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
@@ -384,51 +386,47 @@ export class TicketService {
   }
 
   async findAllByBranchPagging(
-    branchId: number,
-    paginationDto: PaginationDto,
-    request: Request,
-  ) {
-    const { limit = 10, page = 1 } = paginationDto;
-    const skip = (page - 1) * limit;
+  branchId: number,
+  paginationDto: PaginationDto,
+  request: Request,
+) {
+  const { limit = 10, page = 1 } = paginationDto;
+  const skip = (page - 1) * limit;
 
-    const queryBuilder = this.ticketRepository
+  const baseQuery = () =>
+    this.ticketRepository
       .createQueryBuilder('ticket')
-      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-      .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .leftJoinAndSelect('ticket.cliente', 'cliente')
-      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-      .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
       .andWhere('sucursal.id = :branchId', { branchId });
 
-    // 1. Creamos una columna oculta para el ordenamiento
-    queryBuilder.addSelect(
+  const total = await baseQuery().getCount();
+
+  const tickets = await baseQuery()
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .addSelect(
       `(CASE 
         WHEN ticket.status = '${TicketStatus.SIN_ASIGNAR}' THEN 1 
         WHEN ticket.status = '${TicketStatus.RESUELTO}' THEN 3 
         ELSE 2 
       END)`,
-      'status_priority', // Este es el alias de la columna virtual
-    );
+      'status_priority',
+    )
+    .orderBy('status_priority', 'ASC')
+    .addOrderBy('ticket.createdAt', 'DESC')
+    .take(limit)
+    .skip(skip)
+    .getMany();
 
-    // 2. Ordenamos usando el alias que definimos arriba
-    // Nota: Usamos 'ASC' para que el 1 (SIN_ASIGNAR) sea el primero
-    queryBuilder.orderBy('status_priority', 'ASC');
-
-    // 3. Orden secundario por fecha (opcional pero recomendado)
-    queryBuilder.addOrderBy('ticket.createdAt', 'DESC');
-
-    const [tickets, total] = await queryBuilder
-      .take(limit)
-      .skip(skip)
-      .getManyAndCount();
-
-    return this.createPagedResponse(tickets, total, +page, +limit, request);
-  }
+  return this.createPagedResponse(tickets, total, +page, +limit, request);
+}
 
   private createPagedResponse<T>(
     data: T[],
@@ -976,6 +974,9 @@ export class TicketService {
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
@@ -1024,8 +1025,11 @@ export class TicketService {
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })

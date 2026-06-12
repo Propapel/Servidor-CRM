@@ -50,7 +50,7 @@ export class ZernioController {
 
   @Post('webhooks')
   async handleWebhook(@Body() payload: any, @Query('accountId') accountId: string) {
-    console.log('Received Zernio webhook:', payload);
+    console.log('Received Zernio webhook:', JSON.stringify(payload));
     
     if (payload.event === 'message.received') {
       const data = payload.data || payload.payload || payload;
@@ -59,10 +59,16 @@ export class ZernioController {
       const finalAccountId = accountId || data?.accountId || payload.accountId;
 
       if (conversationId && finalAccountId && text) {
-        // No esperamos (await) para responder al webhook inmediatamente
-        this.zernioBotService.handleIncomingMessage(conversationId, finalAccountId, text).catch(err => {
+        // En entornos Serverless (como Vercel) es OBLIGATORIO usar await,
+        // de lo contrario Vercel mata el proceso antes de que se envíe el mensaje.
+        try {
+          await this.zernioBotService.handleIncomingMessage(conversationId, finalAccountId, text);
+          console.log(`Bot handled message successfully for conversation: ${conversationId}`);
+        } catch (err) {
           console.error('Error en ZernioBotService:', err);
-        });
+        }
+      } else {
+        console.log('Missing data in webhook payload:', { conversationId, finalAccountId, text });
       }
     }
     

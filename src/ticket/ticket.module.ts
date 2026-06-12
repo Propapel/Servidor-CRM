@@ -19,5 +19,6 @@ import { SocketGateway } from '../socket/socket.gateway';
     ],
   controllers: [TicketController],
   providers: [TicketService, MailService, SocketGateway],
+  exports: [TicketService],
 })
 export class TicketModule {}

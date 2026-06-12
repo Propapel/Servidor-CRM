@@ -49,6 +49,7 @@ import { TicketStatusModule } from './ticket-status/ticket-status.module';
 import { TypeOfReportModule } from './type-of-report/type-of-report.module';
 import { EquipmentReplacementModule } from './equipment-replacement/equipment-replacement.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { ZernioModule } from './zernio/zernio.module';
 
 @Module({
   imports: [
@@ -112,7 +113,8 @@ import { FirebaseModule } from './firebase/firebase.module';
     TicketStatusModule,
     TypeOfReportModule,
     EquipmentReplacementModule,
-    FirebaseModule
+    FirebaseModule,
+    ZernioModule
   ],
   controllers: [AppController],
   providers: [AppService, CronService, MailService, UsersService],

@@ -55,6 +55,8 @@ export class TicketController {
     @Body('createTicketDto') createTicketDtoStr: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    console.log('--- Archivos recibidos en createPublicTicket ---');
+    console.log(files);
     let createPublicTicketDto: CreatePublicTicketDto;
     try {
       createPublicTicketDto = JSON.parse(createTicketDtoStr);
@@ -131,9 +133,12 @@ export class TicketController {
   @Post('createNewTicketWithFiles')
   @UseInterceptors(FilesInterceptor('files'))
   async createTicketNewWithFiles(
+    @Req() request: Request,
     @Body('createTicketDto') createTicketDtoStr: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    const fs = require('fs');
+    fs.appendFileSync('debug_request.log', `\n\n--- NUEVA PETICION ---\nHEADERS: ${JSON.stringify(request.headers)}\nFILES: ${JSON.stringify(files)}\nBODY: ${JSON.stringify(request.body)}\n`);
     let createTicketDto: CreateTicketDto;
     try {
       createTicketDto = JSON.parse(createTicketDtoStr);
@@ -161,6 +166,8 @@ export class TicketController {
     @Body('createTicketDto') createTicketDtoPlaza: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    console.log('--- Archivos recibidos en createTicketPlazaWithFiles ---');
+    console.log(files);
     let createTicketDto: CreateTicketPlazaDto;
     try {
       createTicketDto = JSON.parse(createTicketDtoPlaza);
@@ -174,9 +181,14 @@ export class TicketController {
   @Post('createTicketWithFiles')
   @UseInterceptors(FilesInterceptor('files'))
   async createTicketWithFiles(
+    @Req() request: Request,
     @Body('createTicketDto') createTicketDtoStr: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    console.log('--- Request Completo (createTicketWithFiles) ---');
+    console.log('Headers:', request.headers['content-type']);
+    console.log('Body:', request.body);
+    console.log('Files:', files);
     let createTicketDto: CreateTicketDto;
     try {
       createTicketDto = JSON.parse(createTicketDtoStr);

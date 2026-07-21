@@ -10,6 +10,7 @@ export class CreatePublicTicketDto {
   reasonReport?: string;
   location?: string;
   files?: string[];
+  attachedFiles?: { url: string; type: string; name?: string }[];
   status?: TicketStatus; // Can be optional and set default by service
   typeOfReport?: TypeOfReport;
   sucursalId: number; // For public tickets, we require the sucursal

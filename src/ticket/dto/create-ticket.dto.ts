@@ -14,6 +14,7 @@ export class CreateTicketDto {
   reasonReport?: string;
   location?: string;
   files?: string[];
+  attachedFiles?: { url: string; type: string; name?: string }[];
   status: TicketStatus;
   typeOfReport?: TypeOfReport;
   clientId: number;

@@ -86,6 +86,9 @@ export class Ticket {
   @Column('simple-json', { nullable: true })
   files: string[];
 
+  @Column('simple-json', { nullable: true })
+  attachedFiles: { url: string; type: string; name?: string }[];
+
   @Column({ nullable: true })
   pdfPageService: string;
 

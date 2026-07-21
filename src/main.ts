@@ -7,6 +7,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import * as bodyParser from 'body-parser';
 import { INestApplication } from '@nestjs/common';
 import { Request, Response } from 'express';
+import admobRoutes from './routes/admob.routes';
 
 let cachedApp: INestApplication;
 
@@ -21,6 +22,7 @@ async function createApp(): Promise<INestApplication> {
       'https://www.mesadeayudasaimid.org',
       'https://mesadeayudasaimid.org',
       'https://propapel.vercel.app',
+      'https://propapel-pied.vercel.app',
       'https://servidor-crm-production.up.railway.app',
       'http://localhost:5173',
       'http://localhost:3002',
@@ -33,6 +35,9 @@ async function createApp(): Promise<INestApplication> {
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
   app.use(bodyParser.json({ limit: '100mb' }));
   app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
+  
+  // Registrar rutas de AdMob
+  app.use('/api/admob', admobRoutes);
   
   // IMPORTANTE: El adaptador de WebSocket debe estar aquí
   app.useWebSocketAdapter(new WsAdapter(app));

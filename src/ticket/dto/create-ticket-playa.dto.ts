@@ -14,6 +14,8 @@ export class CreateTicketPlazaDto {
   reasonReport?: string;
   location?: string;
   plazaId: number;
+  files?: string[];
+  attachedFiles?: { url: string; type: string; name?: string }[];
   status: TicketStatus;
   typeOfReport?: TypeOfReport;
   clientId: number;

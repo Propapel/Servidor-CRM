@@ -192,6 +192,7 @@ export class TicketService {
     const ticketConsecutive = lastTicket?.max ? lastTicket.max + 1 : 1;
 
     const newListFiles: string[] = [];
+    const newAttachedFiles: { url: string; type: string; name?: string }[] = [];
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i];
@@ -201,7 +202,14 @@ export class TicketService {
           pathFile,
           attachment.mimetype,
         );
-        if (fileUrl) newListFiles.push(fileUrl);
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+          newAttachedFiles.push({
+            url: fileUrl,
+            type: attachment.mimetype,
+            name: attachment.originalname,
+          });
+        }
       }
     }
 
@@ -215,6 +223,7 @@ export class TicketService {
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
+      attachedFiles: newAttachedFiles,
       typeOfReportEntity: typeOfReportEntity ?? null,
       sucursal: sucursal,
       phoneReport: createTicketDto.phoneReport,
@@ -523,6 +532,7 @@ export class TicketService {
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
+    const newAttachedFiles: { url: string; type: string; name?: string }[] = [];
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i];
@@ -532,7 +542,14 @@ export class TicketService {
           pathFile,
           attachment.mimetype,
         );
-        if (fileUrl) newListFiles.push(fileUrl);
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+          newAttachedFiles.push({
+            url: fileUrl,
+            type: attachment.mimetype,
+            name: attachment.originalname,
+          });
+        }
       }
     }
 
@@ -548,6 +565,7 @@ export class TicketService {
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
+      attachedFiles: newAttachedFiles,
       typeOfReportEntity: typeOfReportEntity ?? null,
       sucursal: user.sucursales[0], // Asignar sucursal del usuario
       phoneReport: createTicketDto.phoneReport,
@@ -567,6 +585,7 @@ export class TicketService {
     });
     await this.ticketUpdateRepository.save(updateReport);
     // 8. Enviar correos en segundo plano (sin await) para que no tarde la respuesta
+  /*
     if (user && user.email && user.email.trim().length > 0) {
       this.mailService.sendEmailCreatedReport(
         user.name,
@@ -585,7 +604,7 @@ export class TicketService {
         savedTicket.createdAt.toLocaleDateString(),
         savedTicket.statusToken,
       ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
-    }
+    }*/
 
     // await this.emitTickets(user.sucursales[0].id);
     await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
@@ -655,6 +674,7 @@ export class TicketService {
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
+    const newAttachedFiles: { url: string; type: string; name?: string }[] = [];
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i];
@@ -664,7 +684,14 @@ export class TicketService {
           pathFile,
           attachment.mimetype,
         );
-        if (fileUrl) newListFiles.push(fileUrl);
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+          newAttachedFiles.push({
+            url: fileUrl,
+            type: attachment.mimetype,
+            name: attachment.originalname,
+          });
+        }
       }
     }
 
@@ -680,6 +707,7 @@ export class TicketService {
       reasonReport: createTicketDtoPlaza.reasonReport,
       location: createTicketDtoPlaza.location,
       files: newListFiles,
+      attachedFiles: newAttachedFiles,
       typeOfReportEntity: typeOfReportEntity ?? null,
       sucursal: sucursal, // Asignar sucursal del usuario
       phoneReport: createTicketDtoPlaza.phoneReport,
@@ -756,6 +784,7 @@ export class TicketService {
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
+    const newAttachedFiles: { url: string; type: string; name?: string }[] = [];
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i];
@@ -765,7 +794,14 @@ export class TicketService {
           pathFile,
           attachment.mimetype,
         );
-        if (fileUrl) newListFiles.push(fileUrl);
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+          newAttachedFiles.push({
+            url: fileUrl,
+            type: attachment.mimetype,
+            name: attachment.originalname,
+          });
+        }
       }
     }
 
@@ -781,6 +817,7 @@ export class TicketService {
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
+      attachedFiles: newAttachedFiles,
       sucursal: user.sucursales[0], // Asignar sucursal del usuario
       phoneReport: createTicketDto.phoneReport,
       emailReport: createTicketDto.emailReport,
@@ -885,6 +922,7 @@ export class TicketService {
 
     // 5. Procesar archivos
     const newListFiles: string[] = [];
+    const newAttachedFiles: { url: string; type: string; name?: string }[] = [];
     if (createTicketDto.files && createTicketDto.files.length > 0) {
       for (let i = 0; i < createTicketDto.files.length; i++) {
         const attachment = createTicketDto.files[i];
@@ -895,7 +933,14 @@ export class TicketService {
           pathFile,
           'image/png',
         );
-        if (fileUrl) newListFiles.push(fileUrl);
+        if (fileUrl) {
+          newListFiles.push(fileUrl);
+          newAttachedFiles.push({
+            url: fileUrl,
+            type: 'image/png',
+            name: `image_${Date.now()}.png`,
+          });
+        }
       }
     }
 
@@ -911,6 +956,7 @@ export class TicketService {
       reasonReport: createTicketDto.reasonReport,
       location: createTicketDto.location,
       files: newListFiles,
+      attachedFiles: newAttachedFiles,
       sucursal: user.sucursales[0], // Asignar sucursal del usuario
       phoneReport: createTicketDto.phoneReport,
       emailReport: createTicketDto.emailReport,

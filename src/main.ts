@@ -26,6 +26,7 @@ async function createApp(): Promise<INestApplication> {
       'https://servidor-crm-production.up.railway.app',
       'http://localhost:5173',
       'http://localhost:3002',
+      'http://localhost:8080'
     ],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, x-api-key',

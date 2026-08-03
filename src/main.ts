@@ -27,6 +27,7 @@ async function createApp(): Promise<INestApplication> {
       'http://localhost:5173',
       'http://localhost:3002',
       'http://localhost:8080',
+      'https://propapelmesadeayuda.vercel.app',
       'https://propapeldesk.vercel.app'
     ],
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',

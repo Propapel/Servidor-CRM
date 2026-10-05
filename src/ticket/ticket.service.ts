@@ -1010,26 +1010,23 @@ export class TicketService {
     return `This action returns all ticket`;
   }
 
-  async findAllTicketBranches() {
-    return await this.ticketRepository
-      .createQueryBuilder('ticket')
-      .leftJoinAndSelect('ticket.createdBy', 'createdBy')
-      .leftJoinAndSelect('createdBy.sucursales', 'createdBySucursales')
-      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
-      .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
-      .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
-      .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .leftJoinAndSelect('ticket.cliente', 'cliente')
-      .leftJoinAndSelect('ticket.equipo', 'equipo')
-      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
-      .where('ticket.isDelete = :isDelete', { isDelete: false })
-      .orderBy('ticket.createdAt', 'DESC')
-      .getMany();
-  }
+ async findAllTicketBranches() {
+  return await this.ticketRepository
+    .createQueryBuilder('ticket')
+    .leftJoinAndSelect('ticket.createdBy', 'createdBy')
+    .leftJoinAndSelect('createdBy.sucursales', 'createdBySucursales')
+    .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+    .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
+    .leftJoinAndSelect('ticket.updates', 'updates')
+    .leftJoinAndSelect('ticket.comments', 'comments')
+    .leftJoinAndSelect('comments.author', 'commentAuthor')
+    .leftJoinAndSelect('ticket.cliente', 'cliente')
+    .leftJoinAndSelect('ticket.equipo', 'equipo')
+    .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+    .where('ticket.isDelete = :isDelete', { isDelete: false })
+    .orderBy('ticket.createdAt', 'DESC')
+    .getMany();
+}
 
   async findAllByBranch(branchId: number) {
     return await this.ticketRepository

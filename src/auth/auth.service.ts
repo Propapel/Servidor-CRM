@@ -105,18 +105,31 @@ export class AuthService {
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
+    // El refresh token debe ser un JWT vigente (60 días) firmado por nosotros y del mismo usuario.
+    // Responde 401 para que la app cierre la sesión y mande al usuario al login.
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+      if (String(payload.sub) !== String(userId)) throw new Error('user mismatch');
+    } catch {
+      throw new HttpException('Sesión expirada', HttpStatus.UNAUTHORIZED);
+    }
+
     const user = await this.usersRepository.findOne({
       where: { id: Number(userId) },
       relations: ['roles', 'roles.permissions', 'permissions', 'sucursales', 'clients', 'assignedClients'],
     });
+    // Antes se hacía `return new HttpException(...)`: respondía 200 con el error dentro
     if (!user || !user.refreshToken)
-      return new HttpException('Acceso denegado', HttpStatus.FORBIDDEN);
+      throw new HttpException('Sesión expirada', HttpStatus.UNAUTHORIZED);
     const refreshTokenMatches = await argon2.verify(
       user.refreshToken,
       refreshToken,
     );
+    // No coincide si se inició sesión en otro lado o ya se usó este refresh token
     if (!refreshTokenMatches)
-      return new HttpException('Acceso denegado', HttpStatus.FORBIDDEN);
+      throw new HttpException('Sesión expirada', HttpStatus.UNAUTHORIZED);
     const tokens = await this.getTokens(user.id.toString(), user.name);
     await this.updateRefreshToken(user.id.toString(), tokens.refreshToken);
 

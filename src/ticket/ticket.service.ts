@@ -1029,7 +1029,9 @@ export class TicketService {
     const base = this.ticketRepository
       .createQueryBuilder('ticket')
       .where('ticket.isDelete = :isDelete', { isDelete: false });
+    const branchIds = parseList(query.branchIds).map(Number).filter((n) => Number.isInteger(n) && n > 0);
     if (query.branchId) base.andWhere('ticket.sucursalId = :branchId', { branchId: query.branchId });
+    if (branchIds.length) base.andWhere('ticket.sucursalId IN (:...branchIds)', { branchIds });
     if (statuses.length) base.andWhere('ticket.status IN (:...statuses)', { statuses });
     if (types.length) base.andWhere('ticket.typeOfReport IN (:...types)', { types });
     if (attention.length) base.andWhere('ticket.attentionType IN (:...attention)', { attention });

@@ -11,6 +11,11 @@ export class TicketPageQueryDto extends PageQueryDto {
   @Min(1)
   branchId?: number;
 
+  /** Varias sucursales separadas por coma (filtro de la vista de todas las sucursales). */
+  @IsOptional()
+  @IsString()
+  branchIds?: string;
+
   @IsOptional()
   @IsString()
   status?: string;

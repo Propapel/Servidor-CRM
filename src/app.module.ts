@@ -62,10 +62,12 @@ import { ZernioModule } from './zernio/zernio.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      // Sincronizar el esquema en cada arranque es lento y arriesgado en producción.
+      // Se mantiene activo por defecto para no cambiar el comportamiento; DB_SYNCHRONIZE=false lo apaga.
+      synchronize: process.env.DB_SYNCHRONIZE !== 'false',
       connectTimeout: 30000,
       extra: {
-        connectionLimit: 10,
+        connectionLimit: Number(process.env.DB_POOL_SIZE) || 10,
         connectTimeout: 30000,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000,

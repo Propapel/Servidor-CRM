@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import * as bodyParser from 'body-parser';
+import compression = require('compression');
 import { INestApplication } from '@nestjs/common';
 import { Request, Response } from 'express';
 import admobRoutes from './routes/admob.routes';
@@ -35,6 +36,10 @@ async function createApp(): Promise<INestApplication> {
     credentials: true,
   });
 
+  // Gzip para respuestas JSON/HTML (> 1 KB). Solo aplica si el cliente envía Accept-Encoding,
+  // así que las versiones anteriores de la app siguen funcionando igual.
+  app.use(compression({ threshold: 1024 }));
+
   app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
   app.use(bodyParser.json({ limit: '100mb' }));
   app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
@@ -44,6 +49,9 @@ async function createApp(): Promise<INestApplication> {
   
   // IMPORTANTE: El adaptador de WebSocket debe estar aquí
   app.useWebSocketAdapter(new WsAdapter(app));
+
+  // Cierra conexiones de BD y sockets limpiamente cuando Railway reinicia el contenedor
+  app.enableShutdownHooks();
 
   await app.init();
   cachedApp = app;

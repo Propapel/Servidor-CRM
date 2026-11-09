@@ -259,6 +259,34 @@ export class CustomersService {
     return customer;
   }
 
+  /**
+   * Recalcula progreso/estatus y guarda SOLO los clientes que cambiaron, y solo esas dos columnas.
+   * Antes se hacía save() de cada cliente con todas sus relaciones en cada consulta (cientos de queries por GET).
+   */
+  private async refreshProgress(customers: Customer[], userId: number) {
+    const changed: Customer[] = [];
+    for (const customer of customers) {
+      const prevStatus = customer.status;
+      const prevProgress = customer.progressLead;
+      customer.calculateProgress(userId);
+      if (customer.status !== prevStatus || Number(customer.progressLead) !== Number(prevProgress)) {
+        changed.push(customer);
+      }
+    }
+    if (changed.length > 0) {
+      await this.customersRepository.manager.transaction(async (em) => {
+        for (const c of changed) {
+          await em.update(
+            Customer,
+            { customer_id: c.customer_id },
+            { status: c.status, progressLead: c.progressLead },
+          );
+        }
+      });
+    }
+    return customers;
+  }
+
   async getMyCustomer(id: number) {
     const getMyCustomers = await this.customersRepository.find({
       where: {
@@ -268,13 +296,7 @@ export class CustomersService {
       relations: ['opportunities', 'interactions', 'purchases', 'reminders'],
     });
 
-    // Usar map para calcular el progreso y actualizar al mismo tiempo
-    const updatedCustomers = await Promise.all(
-      getMyCustomers.map(async (customer) => {
-        customer.calculateProgress(id);
-        return this.customersRepository.save(customer); // Guardar los cambios
-      }),
-    );
+    const updatedCustomers = await this.refreshProgress(getMyCustomers, id);
     return { customers: updatedCustomers };
   }
 
@@ -500,13 +522,7 @@ export class CustomersService {
       ],
     });
 
-    // Usar map para calcular el progreso y actualizar al mismo tiempo
-    const updatedCustomers = await Promise.all(
-      getMyCustomers.map(async (customer) => {
-        customer.calculateProgress(id);
-        return this.customersRepository.save(customer); // Guardar los cambios
-      }),
-    );
+    const updatedCustomers = await this.refreshProgress(getMyCustomers, id);
     return { customers: updatedCustomers };
   }
 

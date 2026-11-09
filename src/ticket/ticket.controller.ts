@@ -1,3 +1,4 @@
+import { TicketPageQueryDto } from './dto/ticket-page-query.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import {
   Controller,
@@ -419,6 +420,15 @@ export class TicketController {
   }
 
   //@UseGuards(AccessTokenGuard)
+  /**
+   * Tickets paginados con búsqueda y filtros en el servidor.
+   * GET /ticket/page?branchId=1&page=1&limit=25&search=&status=SIN_ASIGNAR,ASIGNADO
+   */
+  @Get('page')
+  findPage(@Query() query: TicketPageQueryDto, @Req() request: Request) {
+    return this.ticketService.findPage(query, request);
+  }
+
   @Get('allTickets')
   findAllTickets() {
     return this.ticketService.findAllTicketBranches();

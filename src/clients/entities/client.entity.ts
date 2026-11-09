@@ -3,8 +3,10 @@ import { EquipmentReplacement } from "../../equipment-replacement/entities/equip
 import { LicenseAssignment } from "../../license-assignment/entities/license-assignment.entity";
 import { Ticket } from "../../ticket/entities/ticket.entity";
 import { User } from "../../users/user.entity";
-import { Column, Entity, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
+// Lista paginada de clientes por sucursal, ordenada por razón social
+@Index('IDX_client_branch_list', ['sucursalId', 'isDelete', 'razonSocial'])
 @Entity( 'client')
 export class Client {
   @PrimaryGeneratedColumn()

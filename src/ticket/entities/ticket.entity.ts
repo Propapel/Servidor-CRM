@@ -23,6 +23,10 @@ import { TicketPriority } from '../enum/ticket_priority';
 import { TypeOfReport } from '../enum/kind_report';
 import { TicketAttentionType } from '../enum/ticket_attention_type';
 
+// Índices para las listas paginadas: filtrar por sucursal/estado y ordenar por fecha sin recorrer la tabla
+@Index('IDX_ticket_branch_list', ['sucursal', 'isDelete', 'createdAt'])
+@Index('IDX_ticket_list', ['isDelete', 'createdAt'])
+@Index('IDX_ticket_status', ['isDelete', 'status'])
 @Entity('ticket')
 export class Ticket {
   @ManyToOne(() => Itequipment, (equipo) => equipo.tickets, {

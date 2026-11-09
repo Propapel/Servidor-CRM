@@ -7,8 +7,11 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { PageQueryDto } from '../common/pagination/page-query.dto';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -18,6 +21,28 @@ import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('customers')
 export class CustomersController {
   constructor(private customerService: CustomersService) {}
+
+  /** Leads paginados de un ejecutivo. ?page=1&limit=25&search=&typeClient=&month=&year= */
+  @Get('page/:userId')
+  findPage(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Query() query: PageQueryDto,
+    @Query('typeClient') typeClient: string,
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Req() request: Request,
+  ) {
+    return this.customerService.findPage(
+      {
+        ...query,
+        userId,
+        typeClient: typeClient || undefined,
+        month: Number(month) || undefined,
+        year: Number(year) || undefined,
+      },
+      request,
+    );
+  }
 
   @UseGuards(AccessTokenGuard)
   @Get('findAllCustomersByUserId/:id')

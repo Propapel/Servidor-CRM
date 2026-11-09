@@ -1,3 +1,6 @@
+import { Request } from 'express';
+import { PageQueryDto, likeTerm } from '../common/pagination/page-query.dto';
+import { normalizePage, toPagedResponse } from '../common/pagination/paged-response';
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -43,6 +46,29 @@ export class ClientsService {
       where: { isDelete: false },
       order: { razonSocial: 'ASC' },
     });
+  }
+
+  /** Clientes paginados de una sucursal con búsqueda por clave, razón social o correo. */
+  async findPage(query: PageQueryDto & { branchId?: number }, request?: Request) {
+    const { page, limit, offset } = normalizePage(query.page, query.limit);
+    const term = likeTerm(query.search);
+    const qb = this.clientRepository
+      .createQueryBuilder('client')
+      .where('client.isDelete = :isDelete', { isDelete: false });
+    if (query.branchId) qb.andWhere('client.sucursalId = :branchId', { branchId: query.branchId });
+    if (term) {
+      qb.andWhere(
+        '(client.numberOfClient LIKE :term OR client.razonSocial LIKE :term OR client.correoElectronicos LIKE :term)',
+        { term },
+      );
+    }
+    const [results, total] = await qb
+      .orderBy('client.razonSocial', 'ASC')
+      .addOrderBy('client.id', 'ASC')
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
+    return toPagedResponse(results, total, page, limit, request);
   }
 
   findBySucursal(sucursalId: number) {

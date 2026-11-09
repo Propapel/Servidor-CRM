@@ -10,7 +10,11 @@ import {
   UploadedFile,
   HttpException,
   ParseIntPipe,
+  Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { PageQueryDto } from '../common/pagination/page-query.dto';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -36,6 +40,12 @@ export class ClientsController {
   @Get()
   findAll() {
     return this.clientsService.findAll();
+  }
+
+  /** Clientes paginados. ?branchId=1&page=1&limit=25&search= */
+  @Get('page')
+  findPage(@Query() query: PageQueryDto, @Query('branchId') branchId: string, @Req() request: Request) {
+    return this.clientsService.findPage({ ...query, branchId: Number(branchId) || undefined }, request);
   }
 
   @Get('findBySucursal/:id')

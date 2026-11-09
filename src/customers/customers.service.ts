@@ -1,3 +1,7 @@
+import { Request } from 'express';
+import { Brackets } from 'typeorm';
+import { PageQueryDto, likeTerm } from '../common/pagination/page-query.dto';
+import { normalizePage, orderByIds, safeUserSelect, toPagedResponse } from '../common/pagination/paged-response';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Customer } from './entity/customer.entity';
@@ -544,6 +548,75 @@ export class CustomersService {
     // Assign updated fields to `customer` and rename the result variable
     const updatedCustomer = Object.assign(customer, updateCustomerDto);
     await this.customersRepository.save(updatedCustomer);
+  }
+
+  /**
+   * Leads paginados de un ejecutivo con búsqueda y filtros en el servidor.
+   * Misma forma que findAllCustomersByUserId, pero solo los de la página y sin datos sensibles del usuario.
+   */
+  async findPage(
+    query: PageQueryDto & { userId: number; typeClient?: string; month?: number; year?: number },
+    request?: Request,
+  ) {
+    const { page, limit, offset } = normalizePage(query.page, query.limit);
+    const term = likeTerm(query.search);
+
+    const base = this.customersRepository
+      .createQueryBuilder('customer')
+      .where('customer.userId = :userId', { userId: query.userId })
+      .andWhere('customer.managerReviewStatus != :discarded', { discarded: ManagerReviewStatus.DISCARDED });
+    if (query.typeClient) base.andWhere('customer.type_of_client = :typeClient', { typeClient: query.typeClient });
+    if (query.year) {
+      // Rango de fechas (usa el índice) en lugar de YEAR()/MONTH() sobre la columna
+      const from = new Date(Date.UTC(query.year, query.month ? query.month - 1 : 0, 1));
+      const to = query.month
+        ? new Date(Date.UTC(query.year, query.month, 1))
+        : new Date(Date.UTC(query.year + 1, 0, 1));
+      base.andWhere('customer.created_at >= :from AND customer.created_at < :to', { from, to });
+    } else if (query.month) {
+      base.andWhere('MONTH(customer.created_at) = :month', { month: query.month });
+    }
+    if (term) {
+      base.andWhere(
+        new Brackets((qb) =>
+          qb
+            .where('customer.company_name LIKE :term', { term })
+            .orWhere('customer.contact_name LIKE :term', { term })
+            .orWhere('customer.email LIKE :term', { term })
+            .orWhere('customer.phone_number LIKE :term', { term })
+            .orWhere('customer.type_of_client LIKE :term', { term })
+            .orWhere('customer.address LIKE :term', { term }),
+        ),
+      );
+    }
+
+    const [total, rows] = await Promise.all([
+      base.clone().getCount(),
+      base
+        .clone()
+        .select('customer.customer_id', 'id')
+        .orderBy('customer.created_at', 'DESC')
+        .addOrderBy('customer.customer_id', 'DESC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<{ id: number }>(),
+    ]);
+    const ids = rows.map((r) => Number(r.id));
+    if (ids.length === 0) return toPagedResponse([], total, page, limit, request);
+
+    const customers = await this.customersRepository
+      .createQueryBuilder('customer')
+      .leftJoin('customer.user', 'user')
+      .addSelect(safeUserSelect('user'))
+      .leftJoinAndSelect('customer.opportunities', 'opportunities')
+      .leftJoinAndSelect('customer.interactions', 'interactions')
+      .leftJoinAndSelect('customer.purchases', 'purchases')
+      .leftJoinAndSelect('customer.reminders', 'reminders')
+      .leftJoinAndSelect('customer.notes', 'notes')
+      .where('customer.customer_id IN (:...ids)', { ids })
+      .getMany();
+
+    return toPagedResponse(orderByIds(customers, ids, (c) => c.customer_id), total, page, limit, request);
   }
 
   async findAllCustomerByUserId(id: number) {

@@ -1,3 +1,4 @@
+import { PageQueryDto } from '../common/pagination/page-query.dto';
 import {
   Body,
   Controller,
@@ -12,10 +13,12 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsersService } from './users.service';
 import { AccessTokenGuard } from '../auth/guards/jwt-auth.guard';
@@ -87,6 +90,18 @@ export class UsersController {
    * @returns Returns all users with their branches.
    */
   @UseGuards(AccessTokenGuard)
+  /** Usuarios paginados con conteos de leads/interacciones/proyectos. ?page=1&limit=25&search=&branchId= */
+  @Get('page')
+  findPage(@Query() query: PageQueryDto, @Query('branchId') branchId: string, @Req() request: Request) {
+    return this.usersService.findPage({ ...query, branchId: branchId ? Number(branchId) : undefined }, request);
+  }
+
+  /** Un usuario con todos sus leads; se pide al abrir su detalle. */
+  @Get('detail/:id')
+  findDetail(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findDetail(id);
+  }
+
   @Get('findAllUsersBranches')
   findAllUsersBranches() {
     return this.usersService.findAllUsersBranches();

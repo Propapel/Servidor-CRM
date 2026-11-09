@@ -8,6 +8,7 @@ import {
   BeforeInsert,
   BeforeUpdate,
   OneToOne,
+  Index,
 } from 'typeorm';
 import { Opportunity } from '../../oportunity/entity/oportunity.entity';
 import { Interaction } from '../../interation/entity/interation.entity';
@@ -22,6 +23,8 @@ import { LeadStatus } from '../../enums/lead_status';
 import { LeadNote } from '../../lead-notes/entities/lead-note.entity';
 import { Conversation } from '../../conversation/entities/conversation.entity';
 
+// Lista paginada de leads de un ejecutivo, ordenada por fecha
+@Index('IDX_customers_user_list', ['user', 'managerReviewStatus', 'created_at'])
 @Entity('customers')
 export class Customer {
   @PrimaryGeneratedColumn()

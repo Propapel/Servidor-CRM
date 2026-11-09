@@ -1,3 +1,9 @@
+import { Request } from 'express';
+import { PageQueryDto, likeTerm } from '../common/pagination/page-query.dto';
+import { normalizePage, orderByIds, safeUserSelect, toPagedResponse } from '../common/pagination/paged-response';
+import { Customer } from '../customers/entity/customer.entity';
+import { Interaction } from '../interation/entity/interation.entity';
+import { Project } from '../projects/entities/project.entity';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
@@ -124,6 +130,109 @@ export class UsersService {
   }
 
   //This function find all users of branches
+
+  /**
+   * Usuarios paginados para la pantalla de cuentas. En lugar de mandar todos los leads de cada
+   * usuario (con interacciones, compras, recordatorios y proyectos) se mandan solo los conteos.
+   * Nunca incluye password ni refreshToken.
+   */
+  async findPage(query: PageQueryDto & { branchId?: number }, request?: Request) {
+    const { page, limit, offset } = normalizePage(query.page, query.limit);
+    const term = likeTerm(query.search);
+
+    const base = this.usersRepository
+      .createQueryBuilder('user')
+      .where(
+        new Brackets((qb) =>
+          qb.where('user.email LIKE :d1', { d1: '%@optivosa.com' }).orWhere('user.email LIKE :d2', { d2: '%@propapel.com.mx' }),
+        ),
+      );
+    if (query.branchId) {
+      base.innerJoin('user.sucursales', 'filterBranch', 'filterBranch.id = :branchId', { branchId: Number(query.branchId) });
+    }
+    if (term) {
+      base.andWhere(
+        new Brackets((qb) =>
+          qb
+            .where('user.name LIKE :term', { term })
+            .orWhere('user.lastname LIKE :term', { term })
+            .orWhere('user.email LIKE :term', { term })
+            .orWhere('user.puesto LIKE :term', { term })
+            .orWhere('user.phone LIKE :term', { term }),
+        ),
+      );
+    }
+
+    const [total, rows] = await Promise.all([
+      base.clone().getCount(),
+      base
+        .clone()
+        .select('user.id', 'id')
+        .orderBy('user.isDelete', 'ASC')
+        .addOrderBy('user.name', 'ASC')
+        .addOrderBy('user.id', 'ASC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<{ id: number }>(),
+    ]);
+    const ids = rows.map((r) => Number(r.id));
+    if (ids.length === 0) return toPagedResponse([], total, page, limit, request);
+
+    const em = this.usersRepository.manager;
+    const countBy = async (qb: any) => {
+      const raw: { userId: number; total: string }[] = await qb.getRawMany();
+      return new Map(raw.map((r) => [Number(r.userId), Number(r.total)]));
+    };
+    const [users, leads, interactions, projects] = await Promise.all([
+      this.usersRepository
+        .createQueryBuilder('user')
+        .select([...safeUserSelect('user'), 'user.isDelete', 'user.created_at', 'user.updated_at'])
+        .leftJoinAndSelect('user.sucursales', 'sucursales')
+        .leftJoinAndSelect('user.roles', 'roles')
+        .where('user.id IN (:...ids)', { ids })
+        .getMany(),
+      countBy(
+        em.createQueryBuilder(Customer, 'c').select('c.userId', 'userId').addSelect('COUNT(*)', 'total')
+          .where('c.userId IN (:...ids)', { ids }).groupBy('c.userId'),
+      ),
+      countBy(
+        em.createQueryBuilder(Interaction, 'i').innerJoin('i.customer', 'c').select('c.userId', 'userId')
+          .addSelect('COUNT(*)', 'total').where('c.userId IN (:...ids)', { ids }).groupBy('c.userId'),
+      ),
+      countBy(
+        em.createQueryBuilder(Project, 'p').innerJoin('p.customer', 'c').select('c.userId', 'userId')
+          .addSelect('COUNT(*)', 'total').where('c.userId IN (:...ids)', { ids }).groupBy('c.userId'),
+      ),
+    ]);
+
+    const results = orderByIds(users, ids, (u) => u.id).map((u) => ({
+      ...u,
+      customers: [],
+      leadsCount: leads.get(u.id) ?? 0,
+      interactionsCount: interactions.get(u.id) ?? 0,
+      projectsCount: projects.get(u.id) ?? 0,
+    }));
+    return toPagedResponse(results, total, page, limit, request);
+  }
+
+  /** Detalle de un usuario con sus leads (lo que antes venía para TODOS en findAllUsersBranches). */
+  async findDetail(id: number) {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .select([...safeUserSelect('user'), 'user.isDelete', 'user.created_at', 'user.updated_at'])
+      .leftJoinAndSelect('user.sucursales', 'sucursales')
+      .leftJoinAndSelect('user.roles', 'roles')
+      .leftJoinAndSelect('user.customers', 'customers')
+      .leftJoinAndSelect('customers.interactions', 'interactions')
+      .leftJoinAndSelect('customers.purchases', 'purchases')
+      .leftJoinAndSelect('customers.reminders', 'reminders')
+      .leftJoinAndSelect('customers.projects', 'projects')
+      .where('user.id = :id', { id })
+      .getOne();
+    if (!user) throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    return user;
+  }
+
   async findAllUsersBranches() {
     const users = await this.usersRepository.find({
       where: [

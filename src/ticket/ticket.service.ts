@@ -1,3 +1,7 @@
+import { TicketPageQueryDto } from './dto/ticket-page-query.dto';
+import { likeTerm, parseList } from '../common/pagination/page-query.dto';
+import { normalizePage, orderByIds, safeUserSelect, toPagedResponse } from '../common/pagination/paged-response';
+import { TypeOfReport } from './enum/kind_report';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
@@ -1006,6 +1010,82 @@ export class TicketService {
 
   findAll() {
     return `This action returns all ticket`;
+  }
+
+
+  /**
+   * Lista paginada y ligera de tickets (sustituye a cargar /allTickets o /byBranch completos).
+   *
+   * 1) Busca solo los ids de la página (filtros + orden + LIMIT) con joins 1:1, que no multiplican filas.
+   * 2) Carga las relaciones únicamente de esos tickets, sin columnas sensibles de los usuarios.
+   */
+  async findPage(query: TicketPageQueryDto, request?: Request) {
+    const { page, limit, offset } = normalizePage(query.page, query.limit);
+    const statuses = parseList(query.status, Object.values(TicketStatus));
+    const types = parseList(query.typeOfReport, Object.values(TypeOfReport));
+    const attention = parseList(query.attentionType, Object.values(TicketAttentionType));
+    const term = likeTerm(query.search);
+
+    const base = this.ticketRepository
+      .createQueryBuilder('ticket')
+      .where('ticket.isDelete = :isDelete', { isDelete: false });
+    if (query.branchId) base.andWhere('ticket.sucursalId = :branchId', { branchId: query.branchId });
+    if (statuses.length) base.andWhere('ticket.status IN (:...statuses)', { statuses });
+    if (types.length) base.andWhere('ticket.typeOfReport IN (:...types)', { types });
+    if (attention.length) base.andWhere('ticket.attentionType IN (:...attention)', { attention });
+    if (term) {
+      base
+        .leftJoin('ticket.cliente', 'searchCliente')
+        .leftJoin('ticket.createdBy', 'searchCreatedBy')
+        .andWhere(
+          `(ticket.ticketNumber LIKE :term OR ticket.nameReported LIKE :term OR ticket.nameCommercial LIKE :term
+            OR ticket.phoneReport LIKE :term OR ticket.emailReport LIKE :term OR ticket.apartamentReport LIKE :term
+            OR ticket.location LIKE :term OR ticket.reasonReport LIKE :term
+            OR searchCliente.razonSocial LIKE :term OR searchCliente.numberOfClient LIKE :term
+            OR searchCreatedBy.name LIKE :term OR searchCreatedBy.lastname LIKE :term)`,
+          { term },
+        );
+    }
+
+    const [total, rows] = await Promise.all([
+      base.clone().getCount(),
+      base
+        .clone()
+        .select('ticket.id', 'id')
+        .addSelect(
+          `(CASE WHEN ticket.status = '${TicketStatus.SIN_ASIGNAR}' THEN 1
+                 WHEN ticket.status = '${TicketStatus.RESUELTO}' THEN 3 ELSE 2 END)`,
+          'status_priority',
+        )
+        .orderBy('status_priority', 'ASC')
+        .addOrderBy('ticket.createdAt', 'DESC')
+        .addOrderBy('ticket.id', 'DESC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<{ id: number }>(),
+    ]);
+
+    const ids = rows.map((r) => Number(r.id));
+    if (ids.length === 0) return toPagedResponse([], total, page, limit, request);
+
+    const tickets = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoin('ticket.createdBy', 'createdBy')
+      .addSelect(safeUserSelect('createdBy'))
+      .leftJoin('ticket.assigmentsTechnical', 'assigmentsTechnical')
+      .addSelect(safeUserSelect('assigmentsTechnical'))
+      .leftJoinAndSelect('ticket.updates', 'updates')
+      .leftJoinAndSelect('ticket.comments', 'comments')
+      .leftJoin('comments.author', 'commentAuthor')
+      .addSelect(safeUserSelect('commentAuthor'))
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
+      .leftJoinAndSelect('ticket.cliente', 'cliente')
+      .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
+      // Sin 'equipo': la lista no lo usa y trae la contraseña del equipo
+      .where('ticket.id IN (:...ids)', { ids })
+      .getMany();
+
+    return toPagedResponse(orderByIds(tickets, ids, (t) => t.id), total, page, limit, request);
   }
 
  async findAllTicketBranches() {

@@ -359,15 +359,13 @@ export class TicketService {
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('ticket.sucursal', 'sucursal')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
-      .andWhere('ticket.createdBy.id = :userId', { userId });
+      .andWhere('createdBy.id = :userId', { userId });
 
     // 1. Creamos una columna oculta para el ordenamiento
     queryBuilder.addSelect(
@@ -1068,11 +1066,8 @@ export class TicketService {
       .leftJoinAndSelect('ticket.assigmentsTechnical', 'assigmentsTechnical')
       .leftJoinAndSelect('ticket.updates', 'updates')
       .leftJoinAndSelect('ticket.comments', 'comments')
-      .leftJoinAndSelect('ticket.updates', 'updates')
-      .leftJoinAndSelect('ticket.comments', 'comments')
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('comments.author', 'commentAuthor')
-      .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
       .where('ticket.isDelete = :isDelete', { isDelete: false })

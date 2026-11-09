@@ -25,6 +25,10 @@ export class Client {
   @Column('simple-json', { nullable: true })
   correoElectronicos: string[];
 
+  /** Borrado lógico: el cliente se oculta pero se conservan sus tickets e historial. */
+  @Column({ default: false })
+  isDelete: boolean;
+
   @OneToMany(() => Department, (departamento) => departamento.cliente)
   departamentos: Department[];
 

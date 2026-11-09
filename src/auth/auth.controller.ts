@@ -1,3 +1,4 @@
+import { Public } from './decorators/public.decorator';
 import {
   Body,
   Controller,
@@ -27,6 +28,7 @@ export class AuthController {
    * @param user Datos del cliente a registrar.
    * @returns El cliente registrado y sus tokens de acceso.
    */
+  @Public()
   @Post('registerClient')
   registerClient(@Body() user: RegisterUserDto) {
     return this.authService.registerClient(user);
@@ -37,6 +39,7 @@ export class AuthController {
    * @param user Datos del usuario a registrar.
    * @returns El usuario registrado y sus tokens de acceso.
    */
+  @Public()
   @Post('register')
   register(@Body() user: RegisterUserDto) {
     return this.authService.register(user);
@@ -47,6 +50,7 @@ export class AuthController {
    * @param user Credenciales del usuario (email y contraseña).
    * @returns Datos del usuario y tokens de acceso.
    */
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() user: LoginAuthDto) {
@@ -57,6 +61,7 @@ export class AuthController {
    * Envía un correo electrónico para restablecer la contraseña.
    * @param resetPassword DTO con el email del usuario.
    */
+  @Public()
   @Post('resetPassword')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() resetPassword: resetPasswordDto) {
@@ -70,6 +75,7 @@ export class AuthController {
    * Envía un correo electrónico de alerta.
    * @param alertReminderDto Datos de la alerta.
    */
+  @Public()
   @Post('alert')
   @HttpCode(HttpStatus.OK)
   async alertMessage(@Body() alertReminderDto: alertReminderDto) {
@@ -81,6 +87,7 @@ export class AuthController {
    * @param body DTO con userId y refreshToken.
    * @returns Nuevos tokens de acceso y refresco.
    */
+  @Public()
   @Post('refreshToken')
   @HttpCode(HttpStatus.OK)
   refreshTokenWithBody(@Body() body: RefreshTokenDto) {

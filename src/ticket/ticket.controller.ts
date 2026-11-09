@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators/public.decorator';
 import {
   Controller,
   Get,
@@ -44,11 +45,13 @@ export class TicketController {
   constructor(private readonly ticketService: TicketService) { }
 
 
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Get('public/status/:token')
   async getPublicTicketStatus(@Param('token') token: string) {
     return this.ticketService.getPublicTicketByToken(token);
   }
 
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Post('public/create')
   @UseInterceptors(FilesInterceptor('files'))
   async createPublicTicket(
@@ -67,6 +70,7 @@ export class TicketController {
     return this.ticketService.createPublicTicketWithFiles(files, createPublicTicketDto);
   }
 
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Post('public/addComment')
   @UseInterceptors(FileInterceptor('file'))
   async addPublicComment(
@@ -211,6 +215,7 @@ export class TicketController {
     return this.ticketService.unmarkAsForeign(id);
   }
 
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Get('checkStatus/:id')
   checkStatusTicket(@Param('id') id: string) {
     return this.ticketService.checkStatusTicket(id);
@@ -340,6 +345,7 @@ export class TicketController {
    * @param token The token used to qualify the ticket
    * @param res The response object to send the HTML content
    */
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Get('qualifyTicket')
   async qualifyTicket(@Query('token') token: string, @Res() res: Response) {
     const html = await this.ticketService.qualifyServiceByToken(token);
@@ -354,6 +360,7 @@ export class TicketController {
    * @param dto The DTO containing the rating data
    * @returns A confirmation message indicating the ticket has been rated
    */
+  @Public() // Se abre desde correos / portal público, sin sesión
   @Post('rate/:id')
   async rateTicket(
     @Param('id', ParseIntPipe) id: number,

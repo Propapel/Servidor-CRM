@@ -1,6 +1,8 @@
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { GlobalJwtGuard } from './auth/guards/global-jwt.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -119,6 +121,13 @@ import { ZernioModule } from './zernio/zernio.module';
     ZernioModule
   ],
   controllers: [AppController],
-  providers: [AppService, CronService, MailService, UsersService],
+  providers: [
+    AppService,
+    CronService,
+    MailService,
+    UsersService,
+    // Todas las rutas exigen token salvo las marcadas con @Public()
+    { provide: APP_GUARD, useClass: GlobalJwtGuard },
+  ],
 })
 export class AppModule {}

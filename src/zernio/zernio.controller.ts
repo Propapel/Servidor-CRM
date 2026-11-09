@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators/public.decorator';
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ZernioService } from './zernio.service';
 import { ZernioBotService } from './zernio-bot.service';
@@ -48,6 +49,7 @@ export class ZernioController {
     return await this.zernioService.sendMessage(id, accountId, payload);
   }
 
+  @Public() // Webhook de Zernio: llega desde su servidor, sin token
   @Post('webhooks')
   async handleWebhook(@Body() payload: any, @Query('accountId') accountId: string) {
     console.log('Received Zernio webhook:', JSON.stringify(payload));

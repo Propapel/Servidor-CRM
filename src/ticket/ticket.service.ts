@@ -1038,9 +1038,10 @@ export class TicketService {
     const tickets = await this.ticketRepository
       .createQueryBuilder('ticket')
       .leftJoin('ticket.cliente', 'cliente')
+      .leftJoin('ticket.createdBy', 'createdBy')
       .select([
         'ticket.id', 'ticket.ticketNumber', 'ticket.reasonReport', 'ticket.nameReported',
-        'ticket.nameCommercial', 'ticket.createdAt', 'cliente.razonSocial',
+        'ticket.nameCommercial', 'ticket.createdAt', 'cliente.id', 'cliente.razonSocial', 'createdBy.id',
       ])
       .where('ticket.sucursalId = :branchId', { branchId })
       .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
@@ -1056,6 +1057,7 @@ export class TicketService {
         reasonReport: (t.reasonReport ?? '').slice(0, 200),
         nameReported: t.nameReported,
         clientName: t.cliente?.razonSocial ?? t.nameCommercial ?? null,
+        createdById: t.createdBy?.id ?? null,
         createdAt: t.createdAt,
       })),
     };

@@ -424,6 +424,12 @@ export class TicketController {
    * Tickets paginados con búsqueda y filtros en el servidor.
    * GET /ticket/page?branchId=1&page=1&limit=25&search=&status=SIN_ASIGNAR,ASIGNADO
    */
+  /** Tickets nuevos de la sucursal desde el último que vio la app (avisos de escritorio). */
+  @Get('new-since/:branchId')
+  findNewSince(@Param('branchId', ParseIntPipe) branchId: number, @Query('afterId') afterId: string) {
+    return this.ticketService.findNewSince(branchId, Number(afterId) || undefined);
+  }
+
   @Get('page')
   findPage(@Query() query: TicketPageQueryDto, @Req() request: Request) {
     return this.ticketService.findPage(query, request);

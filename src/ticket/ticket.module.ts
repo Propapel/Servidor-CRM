@@ -1,3 +1,4 @@
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Module } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { TicketController } from './ticket.controller';
@@ -15,6 +16,7 @@ import { SocketGateway } from '../socket/socket.gateway';
 
 @Module({
    imports : [
+      NotificationsModule,
       TypeOrmModule.forFeature([User, Ticket, TicketUpdate, Itequipment, Client, TicketComment, Sucursales, TypeOfReportEntity]),
     ],
   controllers: [TicketController],

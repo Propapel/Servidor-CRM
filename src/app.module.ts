@@ -52,6 +52,7 @@ import { TypeOfReportModule } from './type-of-report/type-of-report.module';
 import { EquipmentReplacementModule } from './equipment-replacement/equipment-replacement.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { ZernioModule } from './zernio/zernio.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -118,7 +119,8 @@ import { ZernioModule } from './zernio/zernio.module';
     TypeOfReportModule,
     EquipmentReplacementModule,
     FirebaseModule,
-    ZernioModule
+    ZernioModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

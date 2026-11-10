@@ -1,3 +1,5 @@
+import { NotificationEvent } from '../notifications/notification-events';
+import { TicketNotificationsService } from '../notifications/ticket-notifications.service';
 import { TicketPageQueryDto } from './dto/ticket-page-query.dto';
 import { likeTerm, parseList } from '../common/pagination/page-query.dto';
 import { normalizePage, orderByIds, safeUserSelect, toPagedResponse } from '../common/pagination/paged-response';
@@ -241,6 +243,7 @@ export class TicketService {
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CREATED, savedTicket.id); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.CREATED,
@@ -299,6 +302,7 @@ export class TicketService {
     private readonly typeOfReportRepository: Repository<TypeOfReportEntity>,
     private readonly socketGateway: SocketGateway,
     private readonly firebaseService: FirebaseService,
+    private readonly ticketNotifications: TicketNotificationsService,
   ) { }
 
   async findTicketsForStats(branchId: number) {
@@ -579,6 +583,7 @@ export class TicketService {
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CREATED, savedTicket.id); // correo según la configuración de la sucursal
 
     // 7. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
@@ -721,6 +726,7 @@ export class TicketService {
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CREATED, savedTicket.id); // correo según la configuración de la sucursal
 
     // 7. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
@@ -830,6 +836,7 @@ export class TicketService {
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CREATED, savedTicket.id); // correo según la configuración de la sucursal
 
     // 7. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
@@ -969,6 +976,7 @@ export class TicketService {
     });
 
     const savedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CREATED, savedTicket.id); // correo según la configuración de la sucursal
 
     // 7. Crear registro en historial
     const updateReport = this.ticketUpdateRepository.create({
@@ -1012,6 +1020,46 @@ export class TicketService {
     return `This action returns all ticket`;
   }
 
+
+  /**
+   * Tickets creados después de [afterId] en la sucursal (para los avisos de escritorio).
+   * Sin afterId solo devuelve el id más reciente, para que la app empiece a escuchar desde ahí.
+   */
+  async findNewSince(branchId: number, afterId?: number) {
+    const latest = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .select('MAX(ticket.id)', 'maxId')
+      .where('ticket.sucursalId = :branchId', { branchId })
+      .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
+      .getRawOne<{ maxId: number | null }>();
+    const latestId = Number(latest?.maxId) || 0;
+    if (!afterId || afterId >= latestId) return { latestId, tickets: [] };
+
+    const tickets = await this.ticketRepository
+      .createQueryBuilder('ticket')
+      .leftJoin('ticket.cliente', 'cliente')
+      .select([
+        'ticket.id', 'ticket.ticketNumber', 'ticket.reasonReport', 'ticket.nameReported',
+        'ticket.nameCommercial', 'ticket.createdAt', 'cliente.razonSocial',
+      ])
+      .where('ticket.sucursalId = :branchId', { branchId })
+      .andWhere('ticket.isDelete = :isDelete', { isDelete: false })
+      .andWhere('ticket.id > :afterId', { afterId })
+      .orderBy('ticket.id', 'ASC')
+      .limit(20)
+      .getMany();
+    return {
+      latestId,
+      tickets: tickets.map((t) => ({
+        id: t.id,
+        ticketNumber: t.ticketNumber,
+        reasonReport: (t.reasonReport ?? '').slice(0, 200),
+        nameReported: t.nameReported,
+        clientName: t.cliente?.razonSocial ?? t.nameCommercial ?? null,
+        createdAt: t.createdAt,
+      })),
+    };
+  }
 
   /**
    * Lista paginada y ligera de tickets (sustituye a cargar /allTickets o /byBranch completos).
@@ -1203,6 +1251,7 @@ export class TicketService {
 
     ticket.status = TicketStatus.EN_PROCESO;
     const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_STATUS_CHANGED, updatedTicket.id); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.ONPROGRESS,
@@ -1250,6 +1299,7 @@ export class TicketService {
     ticket.assigmentsTechnical = technicians;
     ticket.status = assigmentsTechnical.statusTicket;
     await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_ASSIGNED, ticket.id); // correo según la configuración de la sucursal
   }
 
   async asigngTicketToTechnical(
@@ -1283,6 +1333,7 @@ export class TicketService {
     ticket.assigmentsTechnical = technicians;
     ticket.status = assigmentsTechnical.statusTicket;
     const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_ASSIGNED, updatedTicket.id); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.ASSIGNED,
@@ -1318,6 +1369,7 @@ export class TicketService {
     ticket.reasonPause = reasonPause;
     ticket.status = TicketStatus.EN_ESPERA;
     const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_STATUS_CHANGED, updatedTicket.id, reasonPause ? `Motivo de la pausa: ${reasonPause}` : undefined); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.PAUSED,
@@ -1344,6 +1396,7 @@ export class TicketService {
 
     ticket.status = statusTicket;
     await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_STATUS_CHANGED, ticket.id); // correo según la configuración de la sucursal
 
     const updatedTicket = await this.ticketRepository
       .createQueryBuilder('ticket')
@@ -1399,6 +1452,7 @@ export class TicketService {
     } */
 
     const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CLOSED, updatedTicket.id); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.CLOSED,
@@ -1495,6 +1549,7 @@ export class TicketService {
 
     ticket.status = TicketStatus.RESUELTO;
     const updatedTicket = await this.ticketRepository.save(ticket);
+    this.ticketNotifications.dispatch(NotificationEvent.TICKET_CLOSED, updatedTicket.id); // correo según la configuración de la sucursal
 
     const updateReport = this.ticketUpdateRepository.create({
       action: TicketAction.CLOSED,

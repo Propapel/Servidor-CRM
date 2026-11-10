@@ -53,6 +53,7 @@ import { EquipmentReplacementModule } from './equipment-replacement/equipment-re
 import { FirebaseModule } from './firebase/firebase.module';
 import { ZernioModule } from './zernio/zernio.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -121,6 +122,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     FirebaseModule,
     ZernioModule,
     NotificationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

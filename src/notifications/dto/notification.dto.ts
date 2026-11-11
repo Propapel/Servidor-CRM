@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ValidateIf,
   ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min,
 } from 'class-validator';
 import { NOTIFICATION_EVENTS, NotificationEvent } from '../notification-events';
@@ -7,16 +8,27 @@ import { NOTIFICATION_EVENTS, NotificationEvent } from '../notification-events';
 export class UpsertSmtpConfigDto {
   @IsOptional() @IsBoolean() enabled?: boolean;
 
+  /** smtp (por defecto) o brevo (API HTTPS, no la bloquea el hosting). */
+  @IsOptional() @IsIn(['smtp', 'brevo'])
+  provider?: 'smtp' | 'brevo';
+
+  @ValidateIf((o) => (o.provider ?? 'smtp') === 'smtp')
   @IsString() @IsNotEmpty({ message: 'El servidor SMTP es obligatorio' }) @MaxLength(255)
-  host: string;
+  host?: string;
 
+  @ValidateIf((o) => (o.provider ?? 'smtp') === 'smtp')
   @Type(() => Number) @IsInt() @Min(1) @Max(65535)
-  port: number;
+  port?: number;
 
-  @IsBoolean() secure: boolean;
+  @IsOptional() @IsBoolean() secure?: boolean;
 
+  @ValidateIf((o) => (o.provider ?? 'smtp') === 'smtp')
   @IsString() @IsNotEmpty({ message: 'El usuario SMTP es obligatorio' }) @MaxLength(255)
-  username: string;
+  username?: string;
+
+  /** API key de Brevo. Vacía o ausente = conservar la guardada. */
+  @IsOptional() @IsString() @MaxLength(500)
+  apiKey?: string;
 
   /** Vacío o ausente = conservar la contraseña guardada. */
   @IsOptional() @IsString() @MaxLength(500)

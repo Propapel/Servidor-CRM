@@ -10,6 +10,14 @@ export class NotificationSmtpConfig {
   @Column()
   branchId: number;
 
+  /** Cómo se envían los correos: SMTP (usuario/contraseña) o la API HTTPS de Brevo. */
+  @Column({ type: 'enum', enum: ['smtp', 'brevo'], default: 'smtp' })
+  provider: 'smtp' | 'brevo';
+
+  /** API key de Brevo cifrada con AES-256-GCM; nunca se devuelve al cliente. */
+  @Column({ type: 'text', nullable: true, select: false })
+  apiKeyEncrypted: string | null;
+
   /** Si está apagado, la sucursal no envía correos (ni con la cuenta general). */
   @Column({ default: true })
   enabled: boolean;

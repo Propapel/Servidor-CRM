@@ -2,12 +2,12 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, Not
 import { InjectRepository } from '@nestjs/typeorm';
 import * as net from 'net';
 import * as nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
 import { Request } from 'express';
 import { In, Repository } from 'typeorm';
 import { Sucursales } from '../sucursales/entities/sucursale.entity';
 import { normalizePage, toPagedResponse } from '../common/pagination/paged-response';
 import { decryptSecret, encryptSecret } from './crypto.util';
+import { BrevoApiError, BrevoMailSender, describeBrevoError, MailSender, SmtpMailSender } from './mail-senders';
 import { CopyConfigDto, CreateRecipientDto, UpdateRecipientDto, UpsertSmtpConfigDto } from './dto/notification.dto';
 import { NotificationLog, NotificationLogStatus } from './entities/notification-log.entity';
 import { NotificationRecipient } from './entities/notification-recipient.entity';
@@ -25,8 +25,9 @@ export interface OutgoingMail {
 }
 
 interface ResolvedTransport {
-  transporter: Transporter;
-  from: string;
+  sender: MailSender;
+  fromName: string;
+  fromEmail: string;
   replyTo?: string | null;
   source: 'branch' | 'default';
   config: NotificationSmtpConfig | null;
@@ -55,8 +56,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   /** Un transporte por sucursal; se descarta cuando cambia la configuración. */
-  private readonly transports = new Map<number, { version: number; transporter: Transporter }>();
-  private defaultTransporter: Transporter | null = null;
+  private readonly transports = new Map<number, { version: number; sender: MailSender }>();
+  private defaultSender: MailSender | null = null;
 
   constructor(
     @InjectRepository(NotificationSmtpConfig) private readonly configs: Repository<NotificationSmtpConfig>,
@@ -92,6 +93,7 @@ export class NotificationsService {
         branchId: b.id,
         branchName: b.nombre,
         smtpConfigured: !!c,
+        provider: c?.provider ?? null,
         enabled: c?.enabled ?? true,
         lastTestOk: c?.lastTestOk ?? null,
         recipientsCount: countByBranch.get(b.id) ?? 0,
@@ -104,7 +106,7 @@ export class NotificationsService {
     await this.ensureBranch(branchId);
     const config = await this.configs
       .createQueryBuilder('c')
-      .addSelect('c.passwordEncrypted')
+      .addSelect(['c.passwordEncrypted', 'c.apiKeyEncrypted'])
       .where('c.branchId = :branchId', { branchId })
       .getOne();
     const recipients = await this.recipients.find({ where: { branchId }, order: { event: 'ASC', email: 'ASC' } });
@@ -123,19 +125,28 @@ export class NotificationsService {
     await this.ensureBranch(branchId);
     const existing = await this.configs
       .createQueryBuilder('c')
-      .addSelect('c.passwordEncrypted')
+      .addSelect(['c.passwordEncrypted', 'c.apiKeyEncrypted'])
       .where('c.branchId = :branchId', { branchId })
       .getOne();
+    const provider = dto.provider ?? 'smtp';
     const password = dto.password?.trim();
-    if (!existing && !password) throw new BadRequestException('Escribe la contraseña del correo');
+    const apiKey = dto.apiKey?.trim();
+    if (provider === 'smtp' && !password && !existing?.passwordEncrypted) {
+      throw new BadRequestException('Escribe la contraseña del correo');
+    }
+    if (provider === 'brevo' && !apiKey && !existing?.apiKeyEncrypted) {
+      throw new BadRequestException('Escribe la API key de Brevo');
+    }
 
     const config = existing ?? this.configs.create({ branchId });
     Object.assign(config, {
+      provider,
       enabled: dto.enabled ?? config.enabled ?? true,
-      host: dto.host.trim(),
-      port: dto.port,
-      secure: dto.secure,
-      username: dto.username.trim(),
+      // Con Brevo no se usan servidor/usuario SMTP (se conservan por si se regresa a SMTP)
+      host: dto.host?.trim() ?? config.host ?? '',
+      port: dto.port ?? config.port ?? 587,
+      secure: dto.secure ?? config.secure ?? false,
+      username: dto.username?.trim() ?? config.username ?? '',
       fromEmail: dto.fromEmail.trim().toLowerCase(),
       fromName: dto.fromName?.trim() || config.fromName || 'Mesa de ayuda Propapel',
       replyTo: dto.replyTo?.trim() || null,
@@ -144,6 +155,7 @@ export class NotificationsService {
       updatedById: userId ?? null,
     });
     if (password) config.passwordEncrypted = encryptSecret(password);
+    if (apiKey) config.apiKeyEncrypted = encryptSecret(apiKey);
     // Los datos cambiaron: la última prueba ya no aplica
     config.lastTestAt = null;
     config.lastTestOk = null;
@@ -171,27 +183,37 @@ export class NotificationsService {
     const host = resolved.config?.host ?? process.env.MAIL_HOST ?? '';
     const port = resolved.config?.port ?? (Number(process.env.MAIL_PORT) || 587);
 
-    // 1) ¿El servidor de la app puede abrir conexión con el SMTP? (DNS + puerto)
-    let result: SmtpTestResult = await this.probeConnection(host, port);
+    const isBrevo = resolved.sender.kind === 'brevo';
+    // 1) SMTP: ¿el servidor de la app puede abrir conexión? (DNS + puerto). Brevo va por HTTPS.
+    let result: SmtpTestResult = isBrevo
+      ? { ok: true, step: 'connect', message: 'Brevo (API HTTPS)', detail: null }
+      : await this.probeConnection(host, port);
 
     // 2) Inicio de sesión y envío en una sola conexión (antes eran dos y la app se quedaba esperando)
     if (result.ok) {
       try {
         await withTimeout(
-          resolved.transporter.sendMail({
-            from: resolved.from,
-            replyTo: resolved.replyTo ?? undefined,
+          resolved.sender.send({
+            fromName: resolved.fromName,
+            fromEmail: resolved.fromEmail,
+            replyTo: resolved.replyTo,
             to,
+            bcc: [],
             subject,
             html: `<p>La configuración de correo de la sucursal funciona correctamente.</p>
-                   <p style="color:#5f6368;font-size:12px">Enviado desde ${resolved.source === 'branch' ? 'el SMTP de la sucursal' : 'la cuenta general'} (${host}:${port}).</p>`,
+                   <p style="color:#5f6368;font-size:12px">Enviado desde ${resolved.source === 'branch' ? 'la configuración de la sucursal' : 'la cuenta general'} (${isBrevo ? 'Brevo' : `${host}:${port}`}).</p>`,
           }),
           SMTP_TEST_TIMEOUT_MS,
           'El servidor de correo tardó demasiado en responder',
         );
         result = { ok: true, step: 'sent', message: `Correo de prueba enviado a ${to}`, detail: null };
       } catch (e) {
-        result = { ok: false, step: this.failedStep(e), message: this.describeSmtpError(e, resolved.config?.username, resolved.config?.fromEmail), detail: this.rawSmtpError(e) };
+        if (e instanceof BrevoApiError) {
+          const described = describeBrevoError(e, resolved.fromEmail);
+          result = { ok: false, step: described.step, message: described.message, detail: `${e.status} ${e.code ?? ''} ${e.message}`.trim() };
+        } else {
+          result = { ok: false, step: this.failedStep(e), message: this.describeSmtpError(e, resolved.config?.username, resolved.config?.fromEmail), detail: this.rawSmtpError(e) };
+        }
       }
     }
 
@@ -202,7 +224,7 @@ export class NotificationsService {
     }
     await this.writeLog({ branchId, event: 'TEST', to: [to], subject, html: '', ticketId: null, ticketNumber: null },
       result.ok ? NotificationLogStatus.SENT : NotificationLogStatus.FAILED, error, resolved.source);
-    return { ...result, host, port, source: resolved.source };
+    return { ...result, provider: resolved.sender.kind, host: isBrevo ? 'api.brevo.com' : host, port: isBrevo ? 443 : port, source: resolved.source };
   }
 
   /** Abre un socket TCP al servidor SMTP para distinguir "no hay conexión" de "credenciales malas". */
@@ -284,7 +306,7 @@ export class NotificationsService {
     if (existing.length !== targets.length) throw new NotFoundException('Alguna sucursal destino no existe');
 
     const source = await this.configs
-      .createQueryBuilder('c').addSelect('c.passwordEncrypted')
+      .createQueryBuilder('c').addSelect(['c.passwordEncrypted', 'c.apiKeyEncrypted'])
       .where('c.branchId = :branchId', { branchId: sourceBranchId }).getOne();
     if (dto.includeSmtp && !source) throw new BadRequestException('La sucursal origen no tiene SMTP configurado');
     const sourceRecipients = dto.includeRecipients ? await this.recipients.findBy({ branchId: sourceBranchId }) : [];
@@ -359,10 +381,11 @@ export class NotificationsService {
         await this.writeLog(mail, NotificationLogStatus.SKIPPED, 'Sin servidor de correo configurado o notificaciones apagadas', 'branch');
         return false;
       }
-      await resolved.transporter.sendMail({
-        from: resolved.from,
-        replyTo: resolved.replyTo ?? undefined,
-        // Un solo destinatario visible; el resto en copia oculta para no exponer correos entre sí
+      // Un solo destinatario visible; el resto en copia oculta para no exponer correos entre sí
+      await resolved.sender.send({
+        fromName: resolved.fromName,
+        fromEmail: resolved.fromEmail,
+        replyTo: resolved.replyTo,
         to: to[0],
         bcc: to.slice(1),
         subject: mail.subject,
@@ -371,7 +394,7 @@ export class NotificationsService {
       await this.writeLog({ ...mail, to }, NotificationLogStatus.SENT, null, resolved.source);
       return true;
     } catch (e) {
-      const error = this.describeSmtpError(e);
+      const error = e instanceof BrevoApiError ? describeBrevoError(e, resolved?.fromEmail).message : this.describeSmtpError(e);
       this.logger.warn(`No se pudo enviar "${mail.subject}": ${error}`);
       await this.writeLog({ ...mail, to }, NotificationLogStatus.FAILED, error, resolved?.source ?? 'branch');
       return false;
@@ -386,30 +409,35 @@ export class NotificationsService {
 
   private async resolveTransport(branchId: number | null, forTest = false): Promise<ResolvedTransport | null> {
     const config = branchId
-      ? await this.configs.createQueryBuilder('c').addSelect('c.passwordEncrypted')
+      ? await this.configs.createQueryBuilder('c').addSelect(['c.passwordEncrypted', 'c.apiKeyEncrypted'])
           .where('c.branchId = :branchId', { branchId }).getOne()
       : null;
 
     if (config) {
       // Apagado a propósito: no se envía nada (salvo una prueba explícita)
       if (!config.enabled && !forTest) return null;
-      if (!config.passwordEncrypted) return null;
-      const version = config.updatedAt?.getTime() ?? 0;
+      const isBrevo = config.provider === 'brevo';
+      const secret = isBrevo ? config.apiKeyEncrypted : config.passwordEncrypted;
+      if (!secret) return null;
+      const version = (config.updatedAt?.getTime() ?? 0) + (isBrevo ? 1 : 0);
       let cached = this.transports.get(config.branchId);
       if (!cached || cached.version !== version) {
-        const transporter = nodemailer.createTransport({
-          host: config.host,
-          port: config.port,
-          secure: config.secure,
-          auth: { user: config.username, pass: decryptSecret(config.passwordEncrypted) },
-          ...SMTP_TIMEOUTS,
-        });
-        cached = { version, transporter };
+        const sender: MailSender = isBrevo
+          ? new BrevoMailSender(decryptSecret(secret))
+          : new SmtpMailSender(nodemailer.createTransport({
+              host: config.host,
+              port: config.port,
+              secure: config.secure,
+              auth: { user: config.username, pass: decryptSecret(secret) },
+              ...SMTP_TIMEOUTS,
+            }));
+        cached = { version, sender };
         this.transports.set(config.branchId, cached);
       }
       return {
-        transporter: cached.transporter,
-        from: `"${config.fromName.replace(/"/g, '')}" <${config.fromEmail}>`,
+        sender: cached.sender,
+        fromName: config.fromName.replace(/"/g, ''),
+        fromEmail: config.fromEmail,
         replyTo: config.replyTo,
         source: 'branch',
         config,
@@ -417,16 +445,17 @@ export class NotificationsService {
     }
 
     if (!this.hasDefaultSmtp()) return null;
-    this.defaultTransporter ??= nodemailer.createTransport({
+    this.defaultSender ??= new SmtpMailSender(nodemailer.createTransport({
       host: process.env.MAIL_HOST,
       port: Number(process.env.MAIL_PORT) || 587,
       secure: process.env.MAIL_SECURE === 'true',
       auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
       ...SMTP_TIMEOUTS,
-    });
+    }));
     return {
-      transporter: this.defaultTransporter,
-      from: `"Mesa de ayuda Propapel" <${process.env.MAIL_USER}>`,
+      sender: this.defaultSender,
+      fromName: 'Mesa de ayuda Propapel',
+      fromEmail: process.env.MAIL_USER ?? '',
       source: 'default',
       config: null,
     };
@@ -480,8 +509,8 @@ export class NotificationsService {
   }
 
   private toPublicConfig(c: NotificationSmtpConfig) {
-    const { passwordEncrypted, ...rest } = c;
-    return { ...rest, hasPassword: !!passwordEncrypted };
+    const { passwordEncrypted, apiKeyEncrypted, ...rest } = c;
+    return { ...rest, provider: c.provider ?? 'smtp', hasPassword: !!passwordEncrypted, hasApiKey: !!apiKeyEncrypted };
   }
 
   private async ensureBranch(branchId: number) {

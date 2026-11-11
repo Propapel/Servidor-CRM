@@ -10,6 +10,19 @@ export class CreateCustomerDto {
     readonly type_of_client: string;
     readonly phone_number: string;
     readonly address?: string;
+
+    // Datos de CRM (opcionales)
+    readonly job_title?: string;
+    readonly lead_source?: string;
+    readonly industry?: string;
+    readonly company_size?: string;
+    readonly website?: string;
+    readonly rfc?: string;
+    readonly city?: string;
+    readonly estimated_value?: number;
+    readonly expected_close_date?: string;
+    readonly priority?: string;
+    readonly tags?: string[];
     //Usuario
     readonly idUser: number;
     // Relacionar oportunidad (opcional)

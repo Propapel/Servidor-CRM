@@ -23,6 +23,29 @@ import { NotifityAlertAssignedCustomer } from '../auth/service/notifityAlertAssi
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { CalendarEvent } from '../calendar-event/entities/calendar-event.entity';
 
+
+/** Limpia los datos de CRM que manda la app: vacíos a null, fecha y monto con su tipo. */
+function normalizeCrmFields<T extends Record<string, any>>(data: T): T {
+  const out: Record<string, any> = { ...data };
+  for (const key of ['job_title', 'lead_source', 'industry', 'company_size', 'website', 'rfc', 'city', 'priority']) {
+    if (key in out) out[key] = typeof out[key] === 'string' && out[key].trim() ? out[key].trim() : null;
+  }
+  if ('rfc' in out && out.rfc) out.rfc = String(out.rfc).toUpperCase();
+  if ('estimated_value' in out) {
+    const n = Number(out.estimated_value);
+    out.estimated_value = out.estimated_value === null || out.estimated_value === '' || !Number.isFinite(n) || n <= 0 ? null : n;
+  }
+  if ('expected_close_date' in out) {
+    const d = out.expected_close_date ? new Date(out.expected_close_date) : null;
+    out.expected_close_date = d && !Number.isNaN(d.getTime()) ? d : null;
+  }
+  if ('tags' in out) {
+    const tags = Array.isArray(out.tags) ? out.tags.map((t: unknown) => String(t).trim()).filter(Boolean) : [];
+    out.tags = tags.length ? [...new Set(tags)].slice(0, 20) : null;
+  }
+  return out as T;
+}
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -61,7 +84,7 @@ export class CustomersService {
     });
 
     // Crear el cliente
-    const customer = this.customersRepository.create(customerData);
+    const customer = this.customersRepository.create(normalizeCrmFields(customerData) as any as Customer);
     customer.user = user;
 
     await this.customersRepository.save(customer);
@@ -130,7 +153,7 @@ export class CustomersService {
     });
 
     // Crear el cliente
-    const customer = this.customersRepository.create(customerData);
+    const customer = this.customersRepository.create(normalizeCrmFields(customerData) as any as Customer);
     customer.user = user;
 
     await this.customersRepository.save(customer);
@@ -546,7 +569,7 @@ export class CustomersService {
     customer.type_of_client = updateCustomerDto.type_of_client;
 
     // Assign updated fields to `customer` and rename the result variable
-    const updatedCustomer = Object.assign(customer, updateCustomerDto);
+    const updatedCustomer = Object.assign(customer, normalizeCrmFields(updateCustomerDto));
     await this.customersRepository.save(updatedCustomer);
   }
 

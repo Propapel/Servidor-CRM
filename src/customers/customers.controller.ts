@@ -64,8 +64,9 @@ export class CustomersController {
 
    @UseGuards(AccessTokenGuard)
   @Post('createLead')
-  createLead(@Body() customer: CreateCustomerDto) {
-    this.customerService.createNewVersion(customer);
+  async createLead(@Body() customer: CreateCustomerDto) {
+    // Se espera para que un error llegue a la app en lugar de perderse
+    await this.customerService.createNewVersion(customer);
   }
 
     @UseGuards(AccessTokenGuard)
@@ -121,6 +122,6 @@ export class CustomersController {
     @Param('customerId') id: number,
     @Body() updateCustomer: UpdateCustomerDto,
   ) {
-    this.customerService.updateCustomer(id, updateCustomer);
+    return this.customerService.updateCustomer(id, updateCustomer).then(() => undefined);
   }
 }

@@ -77,6 +77,47 @@ export class Customer {
   @Column()
   type_of_client: string;
 
+  // ---- Datos de CRM (opcionales; los leads anteriores quedan en null) ----
+
+  /** Puesto del contacto (Gerente de compras, Director, ...). */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  job_title: string | null;
+
+  /** Cómo llegó el lead: Referido, Sitio web, Llamada en frío, Redes sociales, Evento, ... */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  lead_source: string | null;
+
+  /** Giro o industria de la empresa. */
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  industry: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  company_size: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  website: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  rfc: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  city: string | null;
+
+  /** Valor estimado del negocio en MXN. */
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  estimated_value: number | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  expected_close_date: Date | null;
+
+  /** Alta, Media o Baja. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  priority: string | null;
+
+  /** Etiquetas libres separadas por coma. */
+  @Column({ type: 'simple-array', nullable: true })
+  tags: string[] | null;
+
   @OneToMany(() => Opportunity, (opportunity) => opportunity.customer)
   opportunities: Opportunity[];
 

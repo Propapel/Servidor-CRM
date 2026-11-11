@@ -1,5 +1,6 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as net from 'net';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { Request } from 'express';
@@ -31,7 +32,24 @@ interface ResolvedTransport {
   config: NotificationSmtpConfig | null;
 }
 
-const SMTP_TIMEOUTS = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000 };
+const SMTP_TIMEOUTS = { connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 30_000 };
+const SMTP_CONNECT_TIMEOUT_MS = 10_000;
+const SMTP_TEST_TIMEOUT_MS = 45_000;
+
+interface SmtpTestResult {
+  ok: boolean;
+  step: 'config' | 'dns' | 'connect' | 'tls' | 'auth' | 'send' | 'sent';
+  message: string;
+  detail: string | null;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); }),
+  ]);
+}
 
 @Injectable()
 export class NotificationsService {
@@ -141,35 +159,94 @@ export class NotificationsService {
     return { branchId, deleted: true };
   }
 
-  /** Verifica la conexión y envía un correo real de prueba; guarda el resultado. */
+  /**
+   * Envía un correo real de prueba y explica en qué paso falló si algo sale mal.
+   * Responde siempre 200 con { ok, step, message, detail }: así ningún proxy (Railway, Cloudflare)
+   * reemplaza el mensaje y la app muestra el motivo exacto.
+   */
   async testSmtp(branchId: number, to: string) {
     const resolved = await this.resolveTransport(branchId, true);
     if (!resolved) throw new BadRequestException('La sucursal no tiene servidor de correo configurado');
     const subject = 'Prueba de notificaciones · Mesa de ayuda';
-    let ok = false;
-    let error: string | null = null;
-    try {
-      await resolved.transporter.verify();
-      await resolved.transporter.sendMail({
-        from: resolved.from,
-        replyTo: resolved.replyTo ?? undefined,
-        to,
-        subject,
-        html: `<p>La configuración de correo de la sucursal funciona correctamente.</p>
-               <p style="color:#5f6368;font-size:12px">Enviado desde ${resolved.source === 'branch' ? 'el SMTP de la sucursal' : 'la cuenta general'}.</p>`,
-      });
-      ok = true;
-    } catch (e) {
-      error = this.describeSmtpError(e);
+    const host = resolved.config?.host ?? process.env.MAIL_HOST ?? '';
+    const port = resolved.config?.port ?? (Number(process.env.MAIL_PORT) || 587);
+
+    // 1) ¿El servidor de la app puede abrir conexión con el SMTP? (DNS + puerto)
+    let result: SmtpTestResult = await this.probeConnection(host, port);
+
+    // 2) Inicio de sesión y envío en una sola conexión (antes eran dos y la app se quedaba esperando)
+    if (result.ok) {
+      try {
+        await withTimeout(
+          resolved.transporter.sendMail({
+            from: resolved.from,
+            replyTo: resolved.replyTo ?? undefined,
+            to,
+            subject,
+            html: `<p>La configuración de correo de la sucursal funciona correctamente.</p>
+                   <p style="color:#5f6368;font-size:12px">Enviado desde ${resolved.source === 'branch' ? 'el SMTP de la sucursal' : 'la cuenta general'} (${host}:${port}).</p>`,
+          }),
+          SMTP_TEST_TIMEOUT_MS,
+          'El servidor de correo tardó demasiado en responder',
+        );
+        result = { ok: true, step: 'sent', message: `Correo de prueba enviado a ${to}`, detail: null };
+      } catch (e) {
+        result = { ok: false, step: this.failedStep(e), message: this.describeSmtpError(e, resolved.config?.username, resolved.config?.fromEmail), detail: this.rawSmtpError(e) };
+      }
     }
+
+    const error = result.ok ? null : [result.message, result.detail].filter(Boolean).join(' · ');
     if (resolved.config) {
-      await this.configs.update(resolved.config.id, { lastTestAt: new Date(), lastTestOk: ok, lastTestError: error });
+      await this.configs.update(resolved.config.id, { lastTestAt: new Date(), lastTestOk: result.ok, lastTestError: error })
+        .catch(() => undefined);
     }
-    await this.writeLog({
-      branchId, event: 'TEST', to: [to], subject, html: '', ticketId: null, ticketNumber: null,
-    }, ok ? NotificationLogStatus.SENT : NotificationLogStatus.FAILED, error, resolved.source);
-    if (!ok) throw new HttpException({ ok, message: error }, HttpStatus.BAD_GATEWAY);
-    return { ok, message: `Correo de prueba enviado a ${to}` };
+    await this.writeLog({ branchId, event: 'TEST', to: [to], subject, html: '', ticketId: null, ticketNumber: null },
+      result.ok ? NotificationLogStatus.SENT : NotificationLogStatus.FAILED, error, resolved.source);
+    return { ...result, host, port, source: resolved.source };
+  }
+
+  /** Abre un socket TCP al servidor SMTP para distinguir "no hay conexión" de "credenciales malas". */
+  private probeConnection(host: string, port: number): Promise<SmtpTestResult> {
+    return new Promise((resolve) => {
+      if (!host) {
+        resolve({ ok: false, step: 'config', message: 'Falta el servidor SMTP', detail: null });
+        return;
+      }
+      const socket = net.createConnection({ host, port });
+      const done = (r: SmtpTestResult) => {
+        socket.removeAllListeners();
+        socket.destroy();
+        resolve(r);
+      };
+      socket.setTimeout(SMTP_CONNECT_TIMEOUT_MS);
+      socket.once('connect', () => done({ ok: true, step: 'connect', message: 'Conexión correcta', detail: null }));
+      socket.once('timeout', () => done({
+        ok: false, step: 'connect',
+        message: `El servidor de la app no pudo conectarse a ${host}:${port} (sin respuesta). Revisa servidor y puerto; ` +
+          'si son correctos, el hosting puede estar bloqueando la salida SMTP (prueba 465 o 2525).',
+        detail: 'ETIMEDOUT',
+      }));
+      socket.once('error', (err: NodeJS.ErrnoException) => done({
+        ok: false, step: err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN' ? 'dns' : 'connect',
+        message: err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN'
+          ? `No existe el servidor "${host}". Revisa que esté bien escrito.`
+          : `No se pudo conectar a ${host}:${port} (${err.code ?? err.message}). Revisa servidor y puerto.`,
+        detail: `${err.code ?? ''} ${err.message}`.trim(),
+      }));
+    });
+  }
+
+  private failedStep(e: unknown): SmtpTestResult['step'] {
+    const err = e as { code?: string; command?: string };
+    if (err?.code === 'EAUTH') return 'auth';
+    if (err?.code === 'EENVELOPE' || err?.command === 'MAIL FROM' || err?.command === 'RCPT TO' || err?.command === 'DATA') return 'send';
+    if (err?.code === 'ETLS' || /ssl|tls|wrong version/i.test(String((e as Error)?.message))) return 'tls';
+    return 'send';
+  }
+
+  private rawSmtpError(e: unknown): string | null {
+    const err = e as { response?: string; responseCode?: number; code?: string; message?: string };
+    return (err?.response ?? err?.message ?? null)?.toString().slice(0, 300) ?? null;
   }
 
   // ---------------------------------------------------------------- destinatarios
@@ -379,11 +456,23 @@ export class NotificationsService {
   }
 
   /** Mensaje entendible para los errores SMTP más comunes. */
-  private describeSmtpError(e: unknown): string {
-    const err = e as { code?: string; responseCode?: number; message?: string };
-    if (err?.code === 'EAUTH' || err?.responseCode === 535) return 'Usuario o contraseña del correo incorrectos';
-    if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNECTION' || err?.code === 'ESOCKET') {
-      return 'No se pudo conectar al servidor de correo (revisa servidor, puerto y seguridad)';
+  private describeSmtpError(e: unknown, username?: string, fromEmail?: string): string {
+    const err = e as { code?: string; responseCode?: number; response?: string; message?: string };
+    const response = `${err?.response ?? ''} ${err?.message ?? ''}`;
+    if (err?.code === 'EAUTH' || err?.responseCode === 535 || err?.responseCode === 534) {
+      return /application-specific|app password|5\.7\.9|AUTH.*disabled|SmtpClientAuthentication/i.test(response)
+        ? 'El proveedor pide una contraseña de aplicación o tiene desactivado SMTP AUTH para esta cuenta'
+        : 'Usuario o contraseña del correo incorrectos';
+    }
+    if (/SendAsDenied|not allowed to send|sender address rejected|5\.7\.60|553/i.test(response)
+      || ((err?.responseCode === 550 || err?.responseCode === 554) && /send|sender|from/i.test(response))) {
+      return `El servidor no permite enviar como ${fromEmail ?? 'ese remitente'}. Usa como remitente el mismo correo del usuario SMTP${username ? ` (${username})` : ''}`;
+    }
+    if (/wrong version number|ssl3_get_record|EPROTO/i.test(response)) {
+      return 'La seguridad no coincide con el puerto: usa SSL/TLS con 465 y desactívalo con 587';
+    }
+    if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNECTION' || err?.code === 'ESOCKET' || /tardó demasiado/.test(response)) {
+      return 'El servidor de correo no respondió a tiempo (revisa servidor, puerto y seguridad)';
     }
     if (err?.code === 'EENVELOPE') return 'El servidor rechazó algún destinatario';
     if (err?.message?.includes('NOTIFICATIONS_SECRET')) return err.message;

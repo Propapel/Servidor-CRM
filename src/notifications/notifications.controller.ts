@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { CopyConfigDto, CreateRecipientDto, TestSmtpDto, UpdateRecipientDto, UpsertSmtpConfigDto } from './dto/notification.dto';
 import { NotificationsAdminGuard } from './guards/notifications-admin.guard';
@@ -39,9 +39,15 @@ export class NotificationsController {
     return this.service.deleteSmtp(branchId);
   }
 
+  /**
+   * 200 si el correo salió; 422 (no 502, que los proxies reemplazan) con { ok:false, step, message, detail }
+   * si falló. Las versiones anteriores de la app muestran el mensaje igual.
+   */
   @Post('branches/:branchId/smtp/test')
-  testSmtp(@Param('branchId', ParseIntPipe) branchId: number, @Body() dto: TestSmtpDto) {
-    return this.service.testSmtp(branchId, dto.to.trim());
+  async testSmtp(@Param('branchId', ParseIntPipe) branchId: number, @Body() dto: TestSmtpDto) {
+    const result = await this.service.testSmtp(branchId, dto.to.trim());
+    if (!result.ok) throw new HttpException(result, HttpStatus.UNPROCESSABLE_ENTITY);
+    return result;
   }
 
   @Post('branches/:branchId/recipients')

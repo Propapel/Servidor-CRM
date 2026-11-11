@@ -3,6 +3,8 @@ import { NotificationsService } from './notifications.service';
 import { NotificationEvent } from './notification-events';
 import { TicketNotificationsService } from './ticket-notifications.service';
 
+const pushStub = { notify: jest.fn().mockResolvedValue(undefined) };
+
 /**
  * Garantía: sin configuración (o con fallas) las notificaciones nunca rompen ni retrasan
  * la creación/edición de tickets.
@@ -29,7 +31,7 @@ describe('notificaciones sin configuración o con fallas', () => {
   it('dispatch regresa de inmediato aunque todo falle después', async () => {
     const svc = new TicketNotificationsService(
       { createQueryBuilder: () => { throw new Error('la tabla no existe'); } } as any,
-      {} as any,
+      {} as any, pushStub as any,
     );
     expect(() => svc.dispatch(NotificationEvent.TICKET_CREATED, 1)).not.toThrow();
     await tick();
@@ -37,7 +39,7 @@ describe('notificaciones sin configuración o con fallas', () => {
   });
 
   it('dispatch sin id de ticket no hace nada', () => {
-    const svc = new TicketNotificationsService({} as any, {} as any);
+    const svc = new TicketNotificationsService({} as any, {} as any, pushStub as any);
     expect(() => svc.dispatch(NotificationEvent.TICKET_CREATED, undefined)).not.toThrow();
   });
 
@@ -49,7 +51,7 @@ describe('notificaciones sin configuración o con fallas', () => {
       {} as any,
     );
     const send = jest.spyOn(notifications, 'send');
-    const svc = new TicketNotificationsService({ createQueryBuilder: () => qbTicket(ticket) } as any, notifications);
+    const svc = new TicketNotificationsService({ createQueryBuilder: () => qbTicket(ticket) } as any, notifications, pushStub as any);
     svc.dispatch(NotificationEvent.TICKET_CREATED, 1);
     await tick();
     expect(send).toHaveBeenCalledTimes(1);
@@ -62,7 +64,7 @@ describe('notificaciones sin configuración o con fallas', () => {
     const notifications = new NotificationsService(
       { findOneBy: boom } as any, { find: boom } as any, { insert: boom } as any, {} as any,
     );
-    const svc = new TicketNotificationsService({ createQueryBuilder: () => qbTicket(ticket) } as any, notifications);
+    const svc = new TicketNotificationsService({ createQueryBuilder: () => qbTicket(ticket) } as any, notifications, pushStub as any);
     expect(() => svc.dispatch(NotificationEvent.TICKET_CLOSED, 1)).not.toThrow();
     await tick();
     expect(unhandled).toHaveLength(0);

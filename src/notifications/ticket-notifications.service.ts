@@ -6,6 +6,7 @@ import { Ticket } from '../ticket/entities/ticket.entity';
 import { NotificationEvent } from './notification-events';
 import { renderTicketEmail } from './notification-email.template';
 import { NotificationsService } from './notifications.service';
+import { TicketPushService } from '../push/ticket-push.service';
 
 const STATUS_LABEL: Record<string, string> = {
   SIN_ASIGNAR: 'Sin asignar',
@@ -34,6 +35,7 @@ export class TicketNotificationsService {
   constructor(
     @InjectRepository(Ticket) private readonly tickets: Repository<Ticket>,
     private readonly notifications: NotificationsService,
+    private readonly ticketPush: TicketPushService,
   ) {}
 
   /** Programa el envío y regresa de inmediato. Nunca lanza. */
@@ -42,6 +44,10 @@ export class TicketNotificationsService {
     setImmediate(() => {
       this.handle(event, ticketId, detail).catch((e) =>
         this.logger.warn(`Notificación ${event} del ticket ${ticketId} falló: ${(e as Error).message}`),
+      );
+      // Push (app de escritorio y móvil): independiente del correo, tampoco bloquea ni lanza
+      Promise.resolve().then(() => this.ticketPush.notify(event, ticketId)).catch((e) =>
+        this.logger.warn(`Push ${event} del ticket ${ticketId} falló: ${(e as Error).message}`),
       );
     });
   }

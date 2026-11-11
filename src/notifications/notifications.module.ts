@@ -10,9 +10,11 @@ import { NotificationsAdminGuard } from './guards/notifications-admin.guard';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { TicketNotificationsService } from './ticket-notifications.service';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
+    PushModule,
     TypeOrmModule.forFeature([NotificationSmtpConfig, NotificationRecipient, NotificationLog, Sucursales, Ticket, User]),
   ],
   controllers: [NotificationsController],

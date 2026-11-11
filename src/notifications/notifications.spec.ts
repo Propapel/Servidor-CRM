@@ -6,6 +6,8 @@ import { NotificationLogStatus } from './entities/notification-log.entity';
 import { NotificationEvent } from './notification-events';
 import { TicketNotificationsService } from './ticket-notifications.service';
 
+const pushStub = { notify: jest.fn().mockResolvedValue(undefined) };
+
 jest.mock('nodemailer');
 
 process.env.NOTIFICATIONS_SECRET = 'test-secret';
@@ -103,7 +105,7 @@ describe('TicketNotificationsService', () => {
       getBranchOptions: jest.fn().mockResolvedValue(options),
       send: jest.fn().mockResolvedValue(true),
     };
-    const svc = new TicketNotificationsService({ createQueryBuilder: () => qb } as any, notifications as any);
+    const svc = new TicketNotificationsService({ createQueryBuilder: () => qb } as any, notifications as any, pushStub as any);
     await (svc as any).handle(event, 10);
     return notifications.send.mock.calls.map((c) => c[0]);
   }

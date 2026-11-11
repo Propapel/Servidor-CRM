@@ -260,8 +260,7 @@ export class TicketService {
         savedTicket.statusToken,
       ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
-
-    await this.notifyTechnicians(sucursal.id, savedTicket);
+    // El push a técnicos lo envía ticketNotifications.dispatch(TICKET_CREATED) sin bloquear
 
     const fullTicket = await this.ticketRepository
       .createQueryBuilder('ticket')
@@ -612,9 +611,7 @@ export class TicketService {
         savedTicket.statusToken,
       ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }*/
-
-    // await this.emitTickets(user.sucursales[0].id);
-    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
+    // El push a técnicos lo envía ticketNotifications.dispatch(TICKET_CREATED) sin bloquear
 
     // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
@@ -734,9 +731,7 @@ export class TicketService {
       ticket: savedTicket,
     });
     await this.ticketUpdateRepository.save(updateReport);
-
-    // await this.emitTickets(user.sucursales[0].id);
-    await this.notifyTechnicians(sucursal.id, savedTicket);
+    // El push a técnicos lo envía ticketNotifications.dispatch(TICKET_CREATED) sin bloquear
 
     // 9. Retornar ticket con relaciones
     return await this.ticketRepository
@@ -865,9 +860,7 @@ export class TicketService {
         savedTicket.statusToken,
       ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
-
-    // await this.emitTickets(user.sucursales[0].id);
-    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
+    // El push a técnicos lo envía ticketNotifications.dispatch(TICKET_CREATED) sin bloquear
 
     // 9. Retornar ticket con relaciones
 
@@ -1005,9 +998,7 @@ export class TicketService {
         savedTicket.statusToken,
       ).catch(() => console.log('Aviso: Ignorando error de correo a cliente'));
     }
-
-    // await this.emitTickets(user.sucursales[0].id);
-    await this.notifyTechnicians(user.sucursales[0].id, savedTicket);
+    // El push a técnicos lo envía ticketNotifications.dispatch(TICKET_CREATED) sin bloquear
 
     // 9. Retornar ticket con relaciones
     return this.ticketRepository.findOne({
@@ -2633,34 +2624,6 @@ export class TicketService {
     }
 
     return steps;
-  }
-
-  private async notifyTechnicians(branchId: number, ticket: Ticket) {
-    try {
-      const technicians = await this.userRepository
-        .createQueryBuilder('user')
-        .innerJoin('user.sucursales', 'sucursal')
-        .innerJoin('user.roles', 'rol')
-        .where('sucursal.id = :branchId', { branchId })
-        .andWhere('rol.id = :roleId', { roleId: 5 })
-        .andWhere('user.id != :creatorId', { creatorId: ticket.createdBy?.id || 0 })
-        .andWhere('user.fcmToken IS NOT NULL')
-        .andWhere('user.isDelete = false')
-        .getMany();
-
-      const tokens = technicians.map((tech) => tech.fcmToken).filter(token => token !== '');
-
-      if (tokens.length > 0) {
-        await this.firebaseService.sendMulticastNotification(
-          tokens,
-          '¡Nuevo Ticket Creado!',
-          `Se ha creado el ticket #${ticket.ticketNumber} en la sucursal de tu área.`,
-          { ticketId: ticket.id.toString(), type: 'NEW_TICKET' }
-        );
-      }
-    } catch (error) {
-      console.error('Error al notificar a los técnicos:', error);
-    }
   }
 
   /**

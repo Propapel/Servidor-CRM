@@ -5,6 +5,8 @@ export const ADMIN_PERMISSIONS = {
   NOTIFICATIONS: 'administracion-notificaciones',
   ROLES_AND_PERMISSIONS: 'administracion-roles-y-permisos',
   BRANCHES: 'administracion-sucursales',
+  /** Mesa de ayuda > Clientes: crear, editar, eliminar e importar. */
+  HELPDESK_CLIENTS: 'helpdesk-clientes-admin',
 } as const;
 export type AdminPermissionName = (typeof ADMIN_PERMISSIONS)[keyof typeof ADMIN_PERMISSIONS];
 

@@ -14,4 +14,5 @@ export const SYSTEM_PERMISSION_NAMES = [
   'dashboard-global', 'dashboard-manager-sale', 'dashboard-sale-executive', 'deals', 'helpdesk-branches-reports',
   'helpdesk-dashboard', 'helpdesk-licences', 'helpdesk-my-reports', 'helpdesk-reports', 'helpdesk-ticket-assigned',
   'helpdesk-users', 'leads', 'logs', 'mi-perfil', 'sucursales', 'to-do', 'usuarios', 'usuarios-manager-sale',
+  'administracion-notificaciones', 'administracion-roles-y-permisos', 'administracion-sucursales',
 ];

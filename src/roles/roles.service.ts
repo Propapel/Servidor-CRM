@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Rol } from './rol.entity';
 import { Repository } from 'typeorm';
 import { CreateRolDto } from './dto/create-rol.dto';
+import { isSuperAdminRole } from '../admin/admin-access';
 
 @Injectable()
 export class RolesService {
@@ -15,7 +16,8 @@ export class RolesService {
     }
     
     async getAllRoles() {
-        const rolesFound = await this.rolesRepository.find()
+        // El rol Administrador no se ofrece al crear/editar usuarios
+        const rolesFound = (await this.rolesRepository.find()).filter((rol) => !isSuperAdminRole(rol));
         return {
             roles: rolesFound
         };

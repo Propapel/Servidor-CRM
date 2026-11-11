@@ -17,6 +17,7 @@ import { hash } from 'bcrypt';
 import { Sucursales } from '../sucursales/entities/sucursale.entity';
 import { UpdateInfoUserDto } from './dto/update-info-user';
 import { Rol } from '../roles/rol.entity';
+import { hasSuperAdminRole } from '../admin/admin-access';
 @Injectable()
 export class UsersService {
   constructor(
@@ -504,7 +505,15 @@ export class UsersService {
       where: { id: In(rolesIds) },
     });
 
-    existingUser.roles = roles; // Asigna los roles al usuario
+    // El rol Administrador no se asigna ni se quita desde la app
+    const currentRoles = existingUser.roles ?? (await this.usersRepository.findOne({ where: { id: existingUser.id }, relations: ['roles'] }))?.roles ?? [];
+    if (hasSuperAdminRole(currentRoles)) {
+      existingUser.roles = currentRoles;
+    } else if (hasSuperAdminRole(roles)) {
+      throw new HttpException('El rol Administrador no se puede asignar desde la app', HttpStatus.BAD_REQUEST);
+    } else {
+      existingUser.roles = roles; // Asigna los roles al usuario
+    }
 
     // 5️⃣ Si se proporciona una nueva imagen, la guarda
     if (updateUserInfo.image != existingUser.image) {

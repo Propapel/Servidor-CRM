@@ -1,11 +1,13 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { CopyConfigDto, CreateRecipientDto, TestSmtpDto, UpdateRecipientDto, UpsertSmtpConfigDto } from './dto/notification.dto';
+import { ADMIN_PERMISSIONS, RequireAdminPermission } from '../admin/admin-access';
 import { NotificationsAdminGuard } from './guards/notifications-admin.guard';
 import { NotificationsService } from './notifications.service';
 
 /** Administración de notificaciones por correo (solo gerente regional / gerente de soporte). */
 @UseGuards(NotificationsAdminGuard)
+@RequireAdminPermission(ADMIN_PERMISSIONS.NOTIFICATIONS)
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}

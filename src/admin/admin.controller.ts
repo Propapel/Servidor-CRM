@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Q
 import { Request } from 'express';
 import { BranchesAdminService } from './branches-admin.service';
 import { CreatePermissionDto, CreateRoleDto, UpdatePermissionDto, UpdateRoleDto, UpsertBranchDto } from './dto/admin.dto';
+import { ADMIN_PERMISSIONS, RequireAdminPermission } from './admin-access';
 import { AdminRolesGuard } from './guards/admin-roles.guard';
 import { PermissionsAdminService } from './permissions-admin.service';
 import { RolesAdminService } from './roles-admin.service';
@@ -14,6 +15,7 @@ const pageQuery = (page?: string, limit?: string, search?: string) => ({
 
 /** Administración de roles. Los endpoints anteriores de /roles siguen igual. */
 @UseGuards(AdminRolesGuard)
+@RequireAdminPermission(ADMIN_PERMISSIONS.ROLES_AND_PERMISSIONS)
 @Controller('admin/roles')
 export class AdminRolesController {
   constructor(private readonly service: RolesAdminService) {}
@@ -39,6 +41,7 @@ export class AdminRolesController {
 }
 
 @UseGuards(AdminRolesGuard)
+@RequireAdminPermission(ADMIN_PERMISSIONS.ROLES_AND_PERMISSIONS)
 @Controller('admin/permissions')
 export class AdminPermissionsController {
   constructor(private readonly service: PermissionsAdminService) {}
@@ -53,6 +56,7 @@ export class AdminPermissionsController {
 }
 
 @UseGuards(AdminRolesGuard)
+@RequireAdminPermission(ADMIN_PERMISSIONS.BRANCHES)
 @Controller('admin/branches')
 export class AdminBranchesController {
   constructor(private readonly service: BranchesAdminService) {}

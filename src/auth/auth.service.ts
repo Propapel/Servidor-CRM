@@ -11,6 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { MailService } from './service/MailService';
 import { resetPasswordDto } from './dto/reset-password.dto';
 import { Rol } from '../roles/rol.entity';
+import { Permission } from '../permission/entities/permission.entity';
+import { hasSuperAdminRole } from '../admin/admin-access';
 import { Sucursales } from '../sucursales/entities/sucursale.entity';
 import storage = require('../utils/cloud_storage.js');
 
@@ -79,7 +81,7 @@ export class AuthService {
 
   async login(loginRequest: LoginAuthDto) {
     const userFound = await this.validateUser(loginRequest);
-    const permissions = this.getPermissions(userFound);
+    const permissions = await this.getPermissions(userFound);
 
     const payload = { id: userFound.id, name: userFound.name };
     const tokens = await this.getTokens(payload.id.toString(), payload.name);
@@ -134,7 +136,7 @@ export class AuthService {
     await this.updateRefreshToken(user.id.toString(), tokens.refreshToken);
 
     // Devolver la misma estructura que en el login para que el front no falle al parsear
-    const permissions = this.getPermissions(user);
+    const permissions = await this.getPermissions(user);
     const accessTokenExpirationTimestamp = Math.floor(Date.now() / 1000) + 3600;
 
     return {
@@ -217,7 +219,12 @@ export class AuthService {
     return user;
   }
 
-  private getPermissions(user: User): string[] {
+  private async getPermissions(user: User): Promise<string[]> {
+    // El rol Administrador tiene todos los permisos que existan
+    if (hasSuperAdminRole(user.roles)) {
+      const all = await this.usersRepository.manager.getRepository(Permission).find({ select: { name: true } });
+      return all.map((p) => p.name);
+    }
     const permissionsSet = new Set<string>();
 
     user.roles?.forEach((rol) => {

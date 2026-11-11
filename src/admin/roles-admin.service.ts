@@ -7,7 +7,10 @@ import { normalizePage, safeUserSelect, toPagedResponse } from '../common/pagina
 import { Permission } from '../permission/entities/permission.entity';
 import { Rol } from '../roles/rol.entity';
 import { User } from '../users/user.entity';
+import { hasSuperAdminRole, isSuperAdminRole } from './admin-access';
 import { ADMIN_ROLE_IDS, SYSTEM_ROLE_IDS } from './admin.constants';
+
+const PROTECTED_MESSAGE = 'El rol Administrador es especial: tiene todos los permisos y no se puede modificar ni asignar desde la app';
 import { CreateRoleDto, UpdateRoleDto } from './dto/admin.dto';
 
 @Injectable()
@@ -32,6 +35,7 @@ export class RolesAdminService {
 
   async create(dto: CreateRoleDto) {
     const name = dto.name.trim();
+    if (isSuperAdminRole({ name })) throw new BadRequestException('Ese nombre está reservado para el rol Administrador');
     await this.ensureUniqueName(name);
     // Los ids son números en texto (la app los convierte a número)
     const raw = await this.roles.createQueryBuilder('rol').select('MAX(CAST(rol.id AS UNSIGNED))', 'max').getRawOne<{ max: string | null }>();
@@ -50,8 +54,10 @@ export class RolesAdminService {
   async update(id: string, dto: UpdateRoleDto) {
     const role = await this.roles.findOne({ where: { id }, relations: ['permissions'] });
     if (!role) throw new NotFoundException('Rol no encontrado');
+    if (isSuperAdminRole(role)) throw new BadRequestException(PROTECTED_MESSAGE);
     if (dto.name !== undefined) {
       const name = dto.name.trim();
+      if (isSuperAdminRole({ name })) throw new BadRequestException('Ese nombre está reservado para el rol Administrador');
       if (name.toLowerCase() !== role.name.toLowerCase()) await this.ensureUniqueName(name, id);
       role.name = name;
     }
@@ -69,6 +75,7 @@ export class RolesAdminService {
     }
     const role = await this.roles.findOne({ where: { id } });
     if (!role) throw new NotFoundException('Rol no encontrado');
+    if (isSuperAdminRole(role)) throw new BadRequestException(PROTECTED_MESSAGE);
     const usersCount = await this.users.createQueryBuilder('user').innerJoin('user.roles', 'rol', 'rol.id = :id', { id }).getCount();
     if (usersCount > 0) {
       throw new ConflictException(`El rol tiene ${usersCount} usuario(s). Asígnales otro rol antes de eliminarlo`);
@@ -99,8 +106,12 @@ export class RolesAdminService {
   async assignUser(id: string, userId: number, currentUserId?: number) {
     const role = await this.roles.findOne({ where: { id } });
     if (!role) throw new NotFoundException('Rol no encontrado');
+    if (isSuperAdminRole(role)) throw new BadRequestException(PROTECTED_MESSAGE);
     const user = await this.users.findOne({ where: { id: userId }, relations: ['roles'] });
     if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (hasSuperAdminRole(user.roles)) {
+      throw new BadRequestException('Este usuario es Administrador; su rol solo se cambia desde la base de datos');
+    }
     if (currentUserId === userId && !ADMIN_ROLE_IDS.includes(id)) {
       throw new BadRequestException('No puedes quitarte a ti mismo el rol de administrador');
     }
@@ -129,6 +140,8 @@ export class RolesAdminService {
       route: r.route,
       image: r.image,
       system: SYSTEM_ROLE_IDS.includes(r.id),
+      /** Rol Administrador: solo lectura en la app. */
+      protected: isSuperAdminRole(r),
       usersCount: r.usersCount ?? 0,
       permissions: (r.permissions ?? []).map((p) => ({ id: p.id, name: p.name, description: p.description })),
       updatedAt: r.updated_at,

@@ -5,7 +5,15 @@ import { Ticket } from '../ticket/entities/ticket.entity';
 import { User } from '../users/user.entity';
 import { PushService } from './push.service';
 
-export type TicketPushEvent = 'TICKET_CREATED' | 'TICKET_ASSIGNED' | 'TICKET_STATUS_CHANGED' | 'TICKET_CLOSED';
+export type TicketPushEvent = 'TICKET_CREATED' | 'TICKET_ASSIGNED' | 'TICKET_STATUS_CHANGED' | 'TICKET_CLOSED' | 'TICKET_COMMENT';
+
+/** Datos extra de algunos eventos (comentario: quién lo escribió y qué dice). */
+export interface TicketPushExtra {
+  authorId?: number;
+  authorName?: string;
+  preview?: string;
+  isInternal?: boolean;
+}
 
 /** Técnicos (5) y gerentes de soporte (6) reciben los tickets nuevos de su sucursal. */
 const NEW_TICKET_ROLE_IDS = ['5', '6'];
@@ -25,7 +33,7 @@ export class TicketPushService {
     private readonly push: PushService,
   ) {}
 
-  async notify(event: TicketPushEvent, ticketId: number) {
+  async notify(event: TicketPushEvent, ticketId: number, extra: TicketPushExtra = {}) {
     const ticket = await this.tickets
       .createQueryBuilder('ticket')
       .leftJoin('ticket.sucursal', 'sucursal').addSelect(['sucursal.id', 'sucursal.nombre'])
@@ -58,19 +66,35 @@ export class TicketPushService {
           .where('user.isDelete = :isDelete', { isDelete: false })
           .getMany();
         const ids = staff.map((u) => u.id).filter((id) => id !== creatorId); // no avisar a quien lo creó
-        await this.push.sendToUsers(ids, { title: `Nuevo ticket #${ticket.ticketNumber}`, body: summary || 'Hay un ticket nuevo en tu sucursal', data });
+        await this.push.sendToUsers(ids, { title: `Nuevo ticket #${ticket.ticketNumber}`, body: summary || 'Hay un ticket nuevo en tu sucursal', data, category: 'tickets' });
         return;
       }
       case 'TICKET_ASSIGNED': {
         const ids = (ticket.assigmentsTechnical ?? []).map((t) => t.id);
-        await this.push.sendToUsers(ids, { title: `Te asignaron el ticket #${ticket.ticketNumber}`, body: summary, data });
+        await this.push.sendToUsers(ids, { title: `Te asignaron el ticket #${ticket.ticketNumber}`, body: summary, data, category: 'tickets' });
+        return;
+      }
+      case 'TICKET_COMMENT': {
+        // Comentario: quien levantó el ticket y los técnicos asignados, menos quien escribió.
+        // Una nota interna no le llega a quien reportó si no es parte del equipo de soporte.
+        const recipients = new Set<number>((ticket.assigmentsTechnical ?? []).map((t) => t.id));
+        if (creatorId && !extra.isInternal) recipients.add(creatorId);
+        if (extra.authorId) recipients.delete(extra.authorId);
+        const who = extra.authorName?.trim() || 'Alguien';
+        const preview = (extra.preview ?? '').trim().slice(0, 160) || 'Envió una imagen';
+        await this.push.sendToUsers([...recipients], {
+          title: `${who} comentó en el ticket #${ticket.ticketNumber}`,
+          body: preview,
+          data,
+          category: 'tickets',
+        });
         return;
       }
       default: {
         if (!creatorId) return;
         const status = STATUS_LABEL[ticket.status] ?? ticket.status;
         const title = event === 'TICKET_CLOSED' ? `Tu ticket #${ticket.ticketNumber} se cerró` : `Tu ticket #${ticket.ticketNumber}: ${status}`;
-        await this.push.sendToUsers([creatorId], { title, body: summary, data });
+        await this.push.sendToUsers([creatorId], { title, body: summary, data, category: 'tickets' });
       }
     }
   }

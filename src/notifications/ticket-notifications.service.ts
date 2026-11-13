@@ -52,6 +52,16 @@ export class TicketNotificationsService {
     });
   }
 
+  /** Push por un comentario nuevo (no manda correo). Regresa de inmediato y nunca lanza. */
+  commentAdded(ticketId: number | undefined | null, extra: { authorId?: number; authorName?: string; preview?: string; isInternal?: boolean }) {
+    if (!ticketId) return;
+    setImmediate(() => {
+      Promise.resolve().then(() => this.ticketPush.notify('TICKET_COMMENT', ticketId, extra)).catch((e) =>
+        this.logger.warn(`Push de comentario del ticket ${ticketId} falló: ${(e as Error).message}`),
+      );
+    });
+  }
+
   private async handle(event: NotificationEvent, ticketId: number, detail?: string) {
     const ticket = await this.tickets
       .createQueryBuilder('ticket')

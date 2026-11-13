@@ -1,3 +1,4 @@
+import { PushModule } from '../push/push.module';
 import { Module } from '@nestjs/common';
 import { LeadNotesService } from './lead-notes.service';
 import { LeadNotesController } from './lead-notes.controller';
@@ -8,6 +9,7 @@ import { User } from '../users/user.entity';
 
 @Module({
   imports: [
+    PushModule,
      TypeOrmModule.forFeature([
       LeadNote,
       Customer,

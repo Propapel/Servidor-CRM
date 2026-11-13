@@ -1,3 +1,4 @@
+import { PushModule } from '../push/push.module';
 import { Module } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
@@ -32,6 +33,7 @@ import { CalendarEvent } from '../calendar-event/entities/calendar-event.entity'
 
 @Module({
   imports: [
+    PushModule,
     RolesModule,
     SucursalesModule,
     TypeOrmModule.forFeature([

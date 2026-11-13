@@ -29,6 +29,10 @@ export class Reminder {
   @Column({ default: false })
   is_completed: boolean;
 
+  /** Cuándo se mandó el push de "tu cita es pronto" (null = aún no). */
+  @Column({ type: 'datetime', nullable: true })
+  push_notified_at: Date | null;
+
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

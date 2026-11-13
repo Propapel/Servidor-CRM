@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { LeadPushService } from '../push/lead-push.service';
 import { Request } from 'express';
 import { Brackets } from 'typeorm';
 import { PageQueryDto, likeTerm } from '../common/pagination/page-query.dto';
@@ -67,6 +69,7 @@ export class CustomersService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(CalendarEvent)
     private calendarEventRepository: Repository<CalendarEvent>,
+    @Optional() private readonly leadPush?: LeadPushService,
   ) {}
 
 
@@ -422,6 +425,14 @@ export class CustomersService {
         notes: updateStatusCustomerDto.notesOfUpdate,
       });
     }
+    this.leadPush?.leadReviewed({
+      customerId: customerFound.customer_id,
+      companyName: customerFound.company_name,
+      ownerId: customerFound.user?.id,
+      status: leadAction === LeadAction.REASSIGNED ? 'REASSIGNED' : String(customerFound.managerReviewStatus),
+      managerId,
+      notes: updateStatusCustomerDto.notesOfUpdate,
+    });
     return {
       message: 'Customer status updated successfully',
       customerId: customerFound.customer_id,

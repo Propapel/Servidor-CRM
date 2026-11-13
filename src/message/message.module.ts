@@ -1,3 +1,4 @@
+import { PushModule } from '../push/push.module';
 import { Module } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { MessageController } from './message.controller';
@@ -10,6 +11,7 @@ import { Message } from './entities/message.entity';
 
 @Module({
    imports: [
+    PushModule,
         TypeOrmModule.forFeature([
            Conversation,
            User,

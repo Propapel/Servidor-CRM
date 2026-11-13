@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { LeadPushService } from '../push/lead-push.service';
 import { Injectable } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
@@ -16,6 +18,7 @@ export class MessageService {
     private userRepository: Repository<User>,
     @InjectRepository(Message)
     private messageRepository: Repository<Message>,
+    @Optional() private readonly leadPush?: LeadPushService,
   ) {}
 
   async findAllConversationByCustomerId(id: number) {
@@ -55,6 +58,7 @@ export class MessageService {
       where: {
         id: createMessageDto.conversationId,
       },
+      relations: ['customer'],
     });
 
     const userFound = await this.userRepository.findOne({
@@ -72,6 +76,18 @@ export class MessageService {
 
     const createdMessageResponse =
       await this.messageRepository.save(messageCreate);
+    // Push a los demás participantes de la conversación (no bloquea)
+    if (conversationFound && userFound) {
+      this.leadPush?.leadMessage({
+        conversationId: conversationFound.id,
+        customerId: conversationFound.customer?.customer_id,
+        companyName: conversationFound.customer?.company_name,
+        senderId: userFound.id,
+        senderName: `${userFound.name ?? ''} ${userFound.lastname ?? ''}`.trim() || 'Nuevo mensaje',
+        recipientIds: [conversationFound.ejecutivo?.id, conversationFound.creator?.id, conversationFound.participant?.id].filter((id): id is number => !!id),
+        content: createdMessageResponse.content ?? '',
+      });
+    }
     return {
       content: createdMessageResponse.content,
       id: createdMessageResponse.id,

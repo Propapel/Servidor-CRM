@@ -102,6 +102,8 @@ export class TicketService {
     });
 
     await this.ticketCommentRepository.save(comment);
+    // Comentario desde la página pública de seguimiento
+    this.ticketNotifications.commentAdded(ticket.id, { authorName: publicName || 'Quien reportó', preview: content });
 
     const fullTicket = await this.ticketRepository
       .createQueryBuilder('ticket')
@@ -2375,6 +2377,13 @@ export class TicketService {
     });
 
     await this.ticketCommentRepository.save(newComment);
+    // Push a quien levantó el ticket y a los técnicos (sin bloquear la respuesta)
+    this.ticketNotifications.commentAdded(ticketId, {
+      authorId: user.id,
+      authorName: `${user.name ?? ''} ${user.lastname ?? ''}`.trim(),
+      preview: content,
+      isInternal: !!isInternal,
+    });
 
     const fullTicket = await this.ticketRepository
       .createQueryBuilder('ticket')

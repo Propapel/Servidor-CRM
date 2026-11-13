@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { LeadPushService } from '../push/lead-push.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateLeadNoteDto } from './dto/create-lead-note.dto';
 import { UpdateLeadNoteDto } from './dto/update-lead-note.dto';
@@ -15,6 +17,7 @@ export class LeadNotesService {
     @InjectRepository(LeadNote) private leadsNotesService: Repository<LeadNote>,
     @InjectRepository(Customer) private customerService: Repository<Customer>,
     @InjectRepository(User) private userService: Repository<User>,
+    @Optional() private readonly leadPush?: LeadPushService,
   ) {}
 
   /**
@@ -86,6 +89,16 @@ async getUnreadNotesForUser(userId: number): Promise<{ notes: any[] }> {
       author: user,
       customer: customer,
     });
+    if (customer) {
+      this.leadPush?.leadNote({
+        customerId: customer.customer_id,
+        companyName: customer.company_name,
+        ownerId: customer.user?.id,
+        authorId: user?.id,
+        authorName: `${user?.name ?? ''} ${user?.lastname ?? ''}`.trim() || 'Tu gerente',
+        content: createLeadNoteDto.content ?? '',
+      });
+    }
 
     return {
       id: leadNote.id,

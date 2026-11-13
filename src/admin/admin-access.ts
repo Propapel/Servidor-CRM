@@ -7,6 +7,8 @@ export const ADMIN_PERMISSIONS = {
   BRANCHES: 'administracion-sucursales',
   /** Mesa de ayuda > Clientes: crear, editar, eliminar e importar. */
   HELPDESK_CLIENTS: 'helpdesk-clientes-admin',
+  /** Administración > Hoja de servicio: guardar el formato por sucursal. */
+  SERVICE_SHEET: 'administracion-hoja-servicio',
 } as const;
 export type AdminPermissionName = (typeof ADMIN_PERMISSIONS)[keyof typeof ADMIN_PERMISSIONS];
 

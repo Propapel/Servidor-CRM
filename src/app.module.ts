@@ -1,3 +1,4 @@
+import { ServiceSheetModule } from './service-sheet/service-sheet.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
@@ -79,6 +80,7 @@ import { AdminModule } from './admin/admin.module';
       },
     }),
     UsersModule,
+    ServiceSheetModule,
     RolesModule,
     AuthModule,
     PassportModule,

@@ -71,7 +71,8 @@ import { AdminModule } from './admin/admin.module';
       synchronize: process.env.DB_SYNCHRONIZE !== 'false',
       connectTimeout: 30000,
       extra: {
-        connectionLimit: Number(process.env.DB_POOL_SIZE) || 10,
+        // 5 conexiones alcanzan para este tráfico; cada una ocupa memoria también en MySQL
+        connectionLimit: Number(process.env.DB_POOL_SIZE) || 5,
         connectTimeout: 30000,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000,

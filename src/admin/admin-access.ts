@@ -9,6 +9,10 @@ export const ADMIN_PERMISSIONS = {
   HELPDESK_CLIENTS: 'helpdesk-clientes-admin',
   /** Administración > Hoja de servicio: guardar el formato por sucursal. */
   SERVICE_SHEET: 'administracion-hoja-servicio',
+  /** Módulo Logística: envíos, inventario de impresoras y bajas. */
+  LOGISTICS: 'logistica',
+  /** Autorizar o rechazar bajas de equipos. */
+  LOGISTICS_AUTHORIZE: 'logistica-autorizar-bajas',
 } as const;
 export type AdminPermissionName = (typeof ADMIN_PERMISSIONS)[keyof typeof ADMIN_PERMISSIONS];
 

@@ -1,3 +1,4 @@
+import { LogisticsModule } from './logistics/logistics.module';
 import { ServiceSheetModule } from './service-sheet/service-sheet.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -81,6 +82,7 @@ import { AdminModule } from './admin/admin.module';
     }),
     UsersModule,
     ServiceSheetModule,
+    LogisticsModule,
     RolesModule,
     AuthModule,
     PassportModule,

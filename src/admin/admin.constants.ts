@@ -16,4 +16,5 @@ export const SYSTEM_PERMISSION_NAMES = [
   'helpdesk-users', 'leads', 'logs', 'mi-perfil', 'sucursales', 'to-do', 'usuarios', 'usuarios-manager-sale',
   'administracion-notificaciones', 'administracion-roles-y-permisos', 'administracion-sucursales',
   'helpdesk-clientes-admin', 'administracion-hoja-servicio',
+  'logistica', 'logistica-autorizar-bajas',
 ];

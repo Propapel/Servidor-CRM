@@ -1180,6 +1180,8 @@ export class TicketService {
       .leftJoinAndSelect('ticket.typeOfReportEntity', 'typeOfReportEntity')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
+      // La app necesita la sucursal (p. ej. para el formato de la hoja de servicio)
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
       .where('ticket.id = :id', { id })
       .getOne();
   }
@@ -1195,6 +1197,8 @@ export class TicketService {
       .leftJoinAndSelect('comments.author', 'commentAuthor')
       .leftJoinAndSelect('ticket.cliente', 'cliente')
       .leftJoinAndSelect('ticket.equipo', 'equipo')
+      // La app necesita la sucursal (p. ej. para el formato de la hoja de servicio)
+      .leftJoinAndSelect('ticket.sucursal', 'sucursal')
       .where('ticket.isDelete = :isDelete', { isDelete: false })
       .andWhere('createdBy.id = :userId', { userId })
       .orderBy('ticket.createdAt', 'DESC')
@@ -1211,6 +1215,7 @@ export class TicketService {
         status: Not(TicketStatus.RESUELTO),
       },
       relations: [
+        'sucursal',
         'createdBy',
         'assigmentsTechnical',
         'updates',
